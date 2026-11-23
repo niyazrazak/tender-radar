@@ -150,13 +150,14 @@ class LeadStore:
         self.db.commit()
         return bool(changed)
 
-    def unscreened(self, min_score: int, limit: int) -> list[dict]:
-        """Open leads the AI has not rated yet, best keyword score first."""
+    def unscreened(self, min_score: int, limit: int, countries=()) -> list[dict]:
+        """Open leads the AI has not rated yet, best keyword score first. `countries` limits them, when given."""
+        where = f" AND country IN ({', '.join('?' * len(countries))})" if countries else ""
         rows = self.db.execute(
-            """SELECT * FROM leads WHERE ai_fit IS NULL AND CAST(score AS INTEGER) >= ?
-               AND status IN ('open', 'future') AND (closing = '' OR closing >= date('now'))
+            f"""SELECT * FROM leads WHERE ai_fit IS NULL AND CAST(score AS INTEGER) >= ?
+               AND status IN ('open', 'future') AND (closing = '' OR closing >= date('now')){where}
                ORDER BY CAST(score AS INTEGER) DESC, first_seen DESC LIMIT ?""",
-            (min_score, limit),
+            (min_score, *countries, limit),
         ).fetchall()
         return [self._row_to_dict(row) for row in rows]
 

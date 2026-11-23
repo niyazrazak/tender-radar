@@ -93,3 +93,14 @@ def test_pitch_is_stored_as_json(store):
     store.save([make_lead("1")])
     store.set_pitch("test:1", {"subject": "Hi", "message": "Hello"})
     assert store.get("test:1")["pitch"]["subject"] == "Hi"
+
+
+def test_unscreened_keeps_to_focus_countries(tmp_path):
+    from tender_radar.lead import Lead
+    from tender_radar.store import LeadStore
+
+    store = LeadStore(tmp_path / "leads.db")
+    leads = [Lead(source="s", source_id=c, country=c, title="ERP", url="https://x", score=5) for c in ("Qatar", "Oman")]
+    store.save(leads)
+    assert [lead["country"] for lead in store.unscreened(1, 10, ["Qatar"])] == ["Qatar"]
+    assert len(store.unscreened(1, 10)) == 2

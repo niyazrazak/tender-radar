@@ -305,14 +305,14 @@
       "fetch_details": true
     },
     "etimad": {
-      "enabled": true,
+      "enabled": false,
       "publish_window": "week",
       "max_pages": 40
 ,
       "delay_seconds": 3
     },
     "oman_tender_board": {
-      "enabled": true,
+      "enabled": false,
       "max_pages": 45,
       "in_process_pages": 10
     },
@@ -336,11 +336,11 @@
       "max_age_days": 120
     },
     "kuwait_capt": {
-      "enabled": true,
+      "enabled": false,
       "max_pages": 10
     },
     "bahrain_tender_board": {
-      "enabled": true,
+      "enabled": false,
       "max_pages": 60,
       "fetch_details": true
     }

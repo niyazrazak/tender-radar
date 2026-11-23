@@ -90,7 +90,9 @@ class TenderRadar:
         if not self.analyst:
             return 0
         settings = self.ai_settings
-        leads = self.store.unscreened(settings.get("screen_min_score", 1), settings.get("max_per_run", 150))
+        # Only the focus countries: rating leads you will not bid on uses up the Claude allowance.
+        countries = self.config.get("focus_countries", [])
+        leads = self.store.unscreened(settings.get("screen_min_score", 1), settings.get("max_per_run", 150), countries)
         if not leads:
             return 0
         print(f"AI screening {len(leads)} leads …", flush=True)

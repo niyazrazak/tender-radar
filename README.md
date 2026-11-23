@@ -13,6 +13,8 @@ Collects public tender / RFQ leads from GCC government procurement portals, keep
 | Mwani Qatar (mwani.com.qa) | Qatar | Port tenders, not on Monaqasat |
 | Qatar Football Association (qfa.qa) | Qatar | Tenders, not on Monaqasat |
 | Sidra Medicine | Qatar | RFQs, RFIs and tenders, not on Monaqasat |
+| WOQOD (woqod.com) | Qatar | Open tenders with fee and bond, not on Monaqasat |
+| QAFCO (qafco.qa) | Qatar | RFQs with fee, bond and dates from each RFQ's PDF, not on Monaqasat |
 | Etimad (tenders.etimad.sa) | Saudi Arabia | Active tenders published in the last week |
 | Oman Tender Board (etendering.tenderboard.gov.om) | Oman | New tenders and tenders with bids opened |
 | CAPT (capt.gov.kw) | Kuwait | Open tenders |

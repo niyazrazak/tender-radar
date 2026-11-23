@@ -329,6 +329,10 @@
       "enabled": true,
       "max_pages": 2
     },
+    "qafco": {
+      "enabled": true,
+      "max_age_days": 120
+    },
     "kuwait_capt": {
       "enabled": true,
       "max_pages": 10

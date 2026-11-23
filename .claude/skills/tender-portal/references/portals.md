@@ -142,6 +142,27 @@ you learn something new about a portal (a changed label, a new quirk).
 - `fee` 0 with `isPaid` false means free documents (often "send CR and a
   letter of interest by email"). `tenderBond` 0 means none stated.
 
+## QAFCO — Qatar (`sources/qafco.py`)
+
+- Qatar Fertiliser Company. Not on Monaqasat. Page:
+  `https://www.qafco.qa/en/suppliers/` (WordPress, Elementor). robots.txt
+  blocks only `/wp-admin/`. Bids go through QAFCO's SAP Ariba; the list and
+  PDFs are public. Checked 2026-11-23.
+- **List:** each RFQ is a `.elementor-widget-icon-box` whose text is
+  `RFQ 6000006977 <title>` and whose link is the "Invitation to Tender" PDF
+  under `/wp-content/uploads/YYYY/MM/`. The page repeats some RFQs and keeps
+  old ones for months (2025/11 still listed in 2026/11), so the source opens
+  only PDFs uploaded in the last `max_age_days` (default 120).
+- **PDF** (2 pages, text layer; read with pypdf through
+  `PoliteClient.get_pdf_text`, so fixtures store text): an English table, then
+  "GENERAL INSTRUCTIONS", then Arabic. In the table the fee is `500/-`, the bond
+  is `QAR 52,000 (...)`, `32,000 (...)` or `Not applicable` (stored as 0), then
+  the fee-receipt dates and last the closing date. Dates are `13.12.2026` or
+  `31/08/2026`.
+- About 1 RFQ in 20 is IT (e.g. "Implementation of SAP Ariba Spend Control
+  Tower", 2026/03). QAFAC (`qafac.com.qa/tenders`) has a similar page but
+  showed "No valid tenders available"; not built.
+
 ## Etimad — Saudi Arabia (`sources/etimad.py`)
 
 - Owner: Ministry of Finance, Saudi Arabia. Base: `https://tenders.etimad.sa`.

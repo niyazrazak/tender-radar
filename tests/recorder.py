@@ -23,6 +23,7 @@ RECORD_SETTINGS = {
     "qfa": {"max_pages": 2},
     "sidra": {},
     "woqod": {"max_pages": 1},
+    "qafco": {"max_age_days": 120},
     "etimad": {"max_pages": 1, "publish_window": "week"},
     "oman_tender_board": {"max_pages": 1, "in_process_pages": 1},
     "kuwait_capt": {"max_pages": 2},
@@ -51,6 +52,9 @@ class RecordingClient:
     def get_json(self, url, **kwargs):
         return self._save("get_json", url, kwargs, self.client.get_json(url, **kwargs))
 
+    def get_pdf_text(self, url, **kwargs):
+        return self._save("get_pdf_text", url, kwargs, self.client.get_pdf_text(url, **kwargs))
+
     def post_json(self, url, body, **kwargs):
         return self._save("post_json", url, {**kwargs, "body": body}, self.client.post_json(url, body, **kwargs))
 
@@ -74,6 +78,9 @@ class ReplayClient:
 
     def get_json(self, url, **kwargs):
         return self._load("get_json", url, kwargs)
+
+    def get_pdf_text(self, url, **kwargs):
+        return self._load("get_pdf_text", url, kwargs)
 
     def post_json(self, url, body, **kwargs):
         return self._load("post_json", url, {**kwargs, "body": body})

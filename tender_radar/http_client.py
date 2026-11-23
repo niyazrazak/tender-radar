@@ -1,9 +1,11 @@
 import ssl
 import time
+from io import BytesIO
 from pathlib import Path
 
 import certifi
 import requests
+from pypdf import PdfReader
 from requests.adapters import HTTPAdapter
 
 INTERMEDIATES = Path(__file__).parent / "certs" / "intermediates.pem"
@@ -37,6 +39,11 @@ class PoliteClient:
         """POST a JSON body and read JSON back, with the same wait and retries as a GET."""
         headers = {"X-Requested-With": "XMLHttpRequest", "Accept": "application/json", **kwargs.pop("headers", {})}
         return self._request("post", url, json=body, headers=headers, **kwargs).json()
+
+    def get_pdf_text(self, url: str, **kwargs) -> str:
+        """Text of a PDF. Read here, not in a source, so test fixtures record text, not binary files."""
+        reader = PdfReader(BytesIO(self._get(url, **kwargs).content))
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
 
     def _get(self, url: str, **kwargs) -> requests.Response:
         return self._request("get", url, **kwargs)

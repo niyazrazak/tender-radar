@@ -4,6 +4,7 @@ from tender_radar.sources.kuwait_capt import KuwaitCaptSource
 from tender_radar.sources.monaqasat import MonaqasatSource
 from tender_radar.sources.mwani import MwaniSource
 from tender_radar.sources.oman_tender_board import OmanTenderBoardSource
+from tender_radar.sources.qafco import QafcoSource
 from tender_radar.sources.qfa import QfaSource
 from tender_radar.sources.sidra import SidraSource
 from tender_radar.sources.woqod import WoqodSource
@@ -12,7 +13,7 @@ from tender_radar.sources.woqod import WoqodSource
 SOURCES = {
     source.name: source
     for source in (
-        MonaqasatSource, MwaniSource, QfaSource, SidraSource, WoqodSource, EtimadSource, OmanTenderBoardSource,
-        KuwaitCaptSource, BahrainTenderBoardSource,
+        MonaqasatSource, MwaniSource, QfaSource, SidraSource, WoqodSource, QafcoSource,  # Qatar
+        EtimadSource, OmanTenderBoardSource, KuwaitCaptSource, BahrainTenderBoardSource,
     )
 }

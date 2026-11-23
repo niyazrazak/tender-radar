@@ -81,7 +81,22 @@ To use the API instead, put a key in `.env` (copy `.env.example`). With a key se
 - **Upload documents…** adds your company profile PDF, CR copy, trade license and certificates. They are kept in `data/company/documents/`; the details are in `data/company/profile.json`.
 - **Fill from documents** asks Claude to read the PDFs and images and fill the empty fields. Check them, then **Save profile**.
 - Claude rates and analyzes tenders against the saved profile. Until it has content, it uses `company` in `config.json`. Tenders already rated keep their rating.
-- **Attach** marks the documents to send with introduction emails to buyers and partners (planned).
+- **Attach** marks the documents to send with introduction emails (see Outreach).
+
+## Outreach: introduction emails
+
+**Outreach** in the header (or `e`) emails buyers and partners to introduce your company. Claude drafts each email; nothing is sent until you click **Send…** and then confirm the address.
+
+- **Contacts:** add the company, person and email. In a tender's panel, **Introduce us** opens the form with the buyer, or an awarded tender's winner, filled in; add the email address and save. Tick **Draft an email now** to get a draft at once.
+- **Drafts:** read and edit the subject and message, then send. **Draft again** writes a new version. Your signature from Company goes below the message, and the documents marked **Attach** go with it (15 MB at most).
+- To a buyer, the email asks to be added to its supplier list and invited to future tenders. When one of its tenders is open, it does not lobby for that tender: buyers must keep open tenders fair.
+- To a partner (a company that won a contract), it offers to deliver the part of the work in your field as a subcontractor.
+- **Sent** keeps a record of every email, with its attachments. Removing a contact keeps its sent emails.
+
+Emails go out through the SMTP account in `config.json` -> `alerts` -> `email` (`smtp_host`, `smtp_port`, `username`, optional `from`), with the password in `TENDER_RADAR_SMTP_PASSWORD`. Replies go to the email in your company profile. Optional settings in `config.json` -> `outreach`:
+
+- `daily_limit`: most emails sent a day (default 20), so a mistake cannot become a flood.
+- `bcc`: a list of addresses that get a copy of each email, for your records.
 
 ## Alerts by email and Telegram
 

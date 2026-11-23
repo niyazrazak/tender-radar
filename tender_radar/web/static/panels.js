@@ -44,6 +44,7 @@ const drawer = {
       ${analysisBlock(lead, this.analyzing)}
       ${pitchBlock(lead, this.pitching)}
       ${teamBlock(lead)}
+      ${introduceBlock(lead)}
       <dl class="facts">${facts(lead)}</dl>
       ${bidsBlock(lead)}
       ${chips(lead.matched) ? `<div class="block"><h4>Matched keywords</h4>${chips(lead.matched)}</div>` : ""}
@@ -73,6 +74,8 @@ const drawer = {
       if (e.target.closest("[data-save-team]")) this.saveTeam(app);
       if (e.target.closest("[data-pitch]")) this.draftPitch();
       if (e.target.closest("[data-copy-pitch]")) this.copyPitch();
+      const introduce = e.target.closest("[data-introduce]");
+      if (introduce) { this.close(); outreach.open(introducePrefill(this.lead, Number(introduce.dataset.introduce))); }
     });
     $("drawerBody").addEventListener("change", (e) => {
       if (e.target.matches("[data-upload]") && e.target.files.length) this.analyze([...e.target.files]);
@@ -391,6 +394,7 @@ const tweaks = {
     drawer.bind(app);
     market.bind();
     company.bind();
+    outreach.bind();
   },
 
   render(app) {

@@ -358,3 +358,15 @@ button.company:hover { background: var(--hover); color: var(--ink-2); }
 .profile .check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
 .profile form .analyze-controls { margin-top: 24px; }
 @media (max-width: 860px) { .profile-grid { grid-template-columns: 1fr; } }
+
+/* Outreach */
+.intro { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin: 10px 0; display: flex; flex-direction: column; gap: 8px; }
+.intro .analyze-controls { margin-top: 0; }
+.intro input[name=subject] { font-weight: 600; }
+.intro textarea { line-height: 21px; resize: vertical; }
+.contact-form { margin-bottom: 12px; }
+.contact-form.prefilled { border: 1px solid var(--accent); border-radius: var(--radius); padding: 12px 14px; }
+.note.warn { background: var(--urgent-soft); color: var(--ink); border-radius: var(--radius); padding: 10px 14px; }
+.fail { color: var(--urgent); font-size: 13px; }
+.sent-body { white-space: pre-wrap; color: var(--ink-2); margin: 6px 0; }
+.grid details summary { cursor: pointer; }

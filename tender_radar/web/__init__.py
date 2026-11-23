@@ -14,6 +14,7 @@ from tender_radar.ai import LeadAnalyst
 from tender_radar.cli import COMPANY, DEFAULT_MIN_FIT, ROOT, TRANSLATED_FIELDS, TenderRadar
 from tender_radar.company import CompanyProfile
 from tender_radar.market import add_company_english, add_report_english, market_report
+from tender_radar.outreach import Mailer, OutreachStore
 from tender_radar.runs import RunLog
 from tender_radar.small_company import DEFAULT_MAX_UPFRONT_USD, assess
 from tender_radar.scheduler import Scheduler
@@ -80,6 +81,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         routes = {
             "/api/leads": self._leads, "/api/status": self._status, "/api/export": self._export,
             "/api/market": self._market, "/api/company": self._company,
+            "/api/outreach": self._outreach,
         }
         if url.path == "/api/company-document":
             return self._safely(self._company_document, parse_qs(url.query))
@@ -95,6 +97,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "/api/analyze": self._analyze, "/api/pitch": self._pitch,
             "/api/company": self._company_save, "/api/company-upload": self._company_upload,
             "/api/company-document": self._company_document_update, "/api/company-read": self._company_read,
+            "/api/contact": self._contact_save, "/api/contact-delete": self._contact_delete,
+            "/api/intro-draft": self._intro_draft, "/api/intro-update": self._intro_update,
+            "/api/intro-delete": self._intro_delete, "/api/intro-send": self._intro_send,
         }
         path = urlparse(self.path).path
         # A JSON content type forces a CORS preflight, which we never answer, so other sites cannot post here.
@@ -220,6 +225,48 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     def _company_read(self, _body: dict):
         self._json({"details": TenderRadar(self.config_path).read_company_documents()})
+
+    def _outreach(self, _query: dict):
+        config, outreach = self._config(), OutreachStore(_store().db)
+        mailer = Mailer(config)
+        documents = self._profile().load()["documents"]
+        self._json({
+            "contacts": outreach.contacts(), "intros": outreach.intros(),
+            "mailer": {
+                "ready": mailer.ready, "sender": mailer.sender, "daily_limit": mailer.daily_limit,
+                "sent_today": outreach.sent_today(),
+            },
+            "attachments": [doc["name"] for doc in documents if doc.get("attach")],
+            "ai_enabled": LeadAnalyst.available(config),
+        })
+
+    def _contact_save(self, body: dict):
+        """Saves a contact. With `draft`, Claude also drafts the introduction email (not sent)."""
+        contact_id = OutreachStore(_store().db).save_contact(body)
+        if body.get("draft"):
+            TenderRadar(self.config_path).draft_intro(contact_id)
+        self._outreach({})
+
+    def _contact_delete(self, body: dict):
+        OutreachStore(_store().db).delete_contact(int(body.get("id", 0)))
+        self._outreach({})
+
+    def _intro_draft(self, body: dict):
+        TenderRadar(self.config_path).draft_intro(int(body.get("contact_id", 0)), str(body.get("lead_key", "")))
+        self._outreach({})
+
+    def _intro_update(self, body: dict):
+        OutreachStore(_store().db).update_draft(int(body.get("id", 0)), str(body.get("subject", "")),
+                                                str(body.get("body", "")))
+        self._outreach({})
+
+    def _intro_delete(self, body: dict):
+        OutreachStore(_store().db).delete_draft(int(body.get("id", 0)))
+        self._outreach({})
+
+    def _intro_send(self, body: dict):
+        TenderRadar(self.config_path).send_intro(int(body.get("id", 0)))
+        self._outreach({})
 
     def _run(self, _body: dict):
         started = self.scheduler.request_run()

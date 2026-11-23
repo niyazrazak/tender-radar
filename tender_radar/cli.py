@@ -9,6 +9,7 @@ from tender_radar.company import CompanyProfile
 from tender_radar.http_client import PoliteClient
 from tender_radar.lead import Lead
 from tender_radar.market import company_names
+from tender_radar.outreach import Mailer, OutreachStore
 from tender_radar.report import LeadReport
 from tender_radar.runs import RunLog
 from tender_radar.scorer import KeywordScorer
@@ -139,6 +140,37 @@ class TenderRadar:
         if not self.analyst:
             raise ValueError(AI_OFF)
         return self.analyst.read_company(self.company.readable_documents())
+
+    def draft_intro(self, contact_id: int, lead_key: str = "") -> int:
+        """Claude drafts an introduction email to a contact. Returns the draft's id. Nothing is sent."""
+        if not self.analyst:
+            raise ValueError(AI_OFF)
+        outreach = OutreachStore(self.store.db)
+        contact = outreach.contact(contact_id)
+        lead_key = lead_key or contact["lead_key"]
+        lead = self.store.get(lead_key) if lead_key else None
+        if lead:
+            self._add_english([lead])
+        email = self.analyst.intro(contact, lead)
+        return outreach.add_draft(contact_id, lead_key if lead else "", email["subject"], email["body"])
+
+    def send_intro(self, intro_id: int) -> dict:
+        """Sends one approved draft with the documents marked "attach". Returns the stored email."""
+        outreach, mailer = OutreachStore(self.store.db), Mailer(self.config)
+        intro = outreach.intro(intro_id)
+        if intro["status"] == "sent":
+            raise ValueError("This email was sent already")
+        if outreach.sent_today() >= mailer.daily_limit:
+            raise ValueError(f"{mailer.daily_limit} emails went out today, the daily limit (outreach.daily_limit)")
+        attachments = self.company.attachments()
+        message = mailer.build(intro, outreach.contact(intro["contact_id"]), self.company.load(), attachments)
+        try:
+            mailer.send(message)
+        except Exception as error:
+            outreach.mark_failed(intro_id, str(error))
+            raise RuntimeError(f"Not sent: {error}") from error
+        outreach.mark_sent(intro_id, [name for name, _ in attachments])
+        return outreach.intro(intro_id)
 
     def new_awards(self, keys: set) -> list[dict]:
         """Leads in `keys` that are awarded in your field with a known winner."""

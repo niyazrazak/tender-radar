@@ -100,6 +100,13 @@ class CompanyProfile:
             if doc["name"].lower().endswith(READABLE_TYPES) and (self.documents_folder / doc["name"]).is_file()
         ]
 
+    def attachments(self) -> list[tuple[str, bytes]]:
+        """(name, bytes) of the documents marked to go with introduction emails."""
+        return [
+            (doc["name"], (self.documents_folder / doc["name"]).read_bytes()) for doc in self.load()["documents"]
+            if doc.get("attach") and (self.documents_folder / doc["name"]).is_file()
+        ]
+
     def summary(self) -> str:
         """The profile as text for Claude, or `fallback` when nothing is filled in."""
         details = self.load()["details"]

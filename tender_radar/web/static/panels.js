@@ -146,7 +146,7 @@ function analysisBlock(lead, busy) {
       <label class="btn ghost ${busy || off ? "disabled" : ""}" title="PDF or text files of the tender documents">Upload documents…
         <input type="file" data-upload multiple accept=".pdf,.txt,.md" hidden ${busy || off ? "disabled" : ""}></label>
       ${busy ? '<span class="busy">Claude is reading the tender… this can take a minute or two.</span>' : ""}
-      ${off ? '<span class="busy">Set ANTHROPIC_API_KEY in .env and restart the service to turn on AI analysis.</span>' : ""}
+      ${off ? '<span class="busy">Log in to Claude Code (run claude in a terminal) or set ANTHROPIC_API_KEY, then restart the service to turn on AI analysis.</span>' : ""}
     </div>`;
   if (!a) return `<div class="block"><h4>Bid / no-bid</h4>${controls}</div>`;
   const [label, tone] = VERDICTS[a.recommendation] || [a.recommendation, ""];
@@ -180,7 +180,7 @@ function pitchBlock(lead, busy) {
       <div class="analyze-controls">
         <button class="btn ${p ? "ghost" : "primary"}" data-pitch ${busy || off ? "disabled" : ""}>${p ? "Draft again" : "Draft a pitch"}</button>
         ${busy ? '<span class="busy">Claude is writing…</span>' : ""}
-        ${off ? '<span class="busy">Set ANTHROPIC_API_KEY in .env and restart the service to draft pitches.</span>' : ""}
+        ${off ? '<span class="busy">Log in to Claude Code (run claude in a terminal) or set ANTHROPIC_API_KEY, then restart the service to draft pitches.</span>' : ""}
       </div></div>`;
 }
 

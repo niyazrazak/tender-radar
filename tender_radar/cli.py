@@ -17,6 +17,7 @@ from tender_radar.translator import Translator
 ROOT = Path(__file__).resolve().parent.parent
 TRANSLATED_FIELDS = ("title", "buyer", "category", "activities", "brief")
 DEFAULT_MIN_FIT = 6
+AI_OFF = "AI is off. Log in to Claude Code (run `claude`) or set ANTHROPIC_API_KEY, then restart the service."
 
 
 class TenderRadar:
@@ -102,7 +103,7 @@ class TenderRadar:
     def analyze(self, key: str, documents: list[tuple[str, bytes]]) -> dict:
         """Bid / no-bid analysis of one lead, stored with the lead."""
         if not self.analyst:
-            raise ValueError("AI is off. Set ANTHROPIC_API_KEY and restart the service.")
+            raise ValueError(AI_OFF)
         lead = self.store.get(key)
         if not lead:
             raise ValueError(f"Unknown lead: {key}")
@@ -114,7 +115,7 @@ class TenderRadar:
     def pitch(self, key: str) -> dict:
         """A first message to the winner of an awarded lead, stored with the lead."""
         if not self.analyst:
-            raise ValueError("AI is off. Set ANTHROPIC_API_KEY and restart the service.")
+            raise ValueError(AI_OFF)
         lead = self.store.get(key)
         if not lead or not (lead.get("extra") or {}).get("winners"):
             raise ValueError("This lead has no winner to pitch.")

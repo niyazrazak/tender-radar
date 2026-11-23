@@ -7,18 +7,18 @@ Three jobs:
   bid / no-bid summary (scope, requirements, dates, risks, questions for the buyer).
 - translate: English for Arabic text when the free Google endpoint rate-limits a run.
 
-It is off when no API key is set (ANTHROPIC_API_KEY), so the rest of the tool works without it.
+It reaches Claude through the API when ANTHROPIC_API_KEY is set, else through the Claude Code
+CLI logged in with your Claude subscription (`ai.backend`: auto, api or cli). With neither, AI is off
+and the rest of the tool works without it.
 """
 
-import base64
-import os
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from tender_radar.claude_backends import ApiBackend, CliBackend
+
 MODEL = "claude-opus-5-5"
-# On a policy decline, the API reruns the request on a suitable model inside the same call.
-FALLBACK_BETA = "server-side-fallback-2026-07-01"
 SCREEN_BATCH = 10
 BRIEF_CHARS = 2500  # a brief longer than this is boilerplate; the title and activities carry the signal
 
@@ -98,21 +98,23 @@ class Translations(BaseModel):
 
 
 class LeadAnalyst:
-    """Wraps the Claude API calls. Create it only when `available()` is True."""
+    """Wraps the Claude calls. Create it only when `available()` is True."""
 
     def __init__(self, config: dict):
-        import anthropic  # imported here so the tool runs without the package when AI is off
-
         self.settings = config.get("ai", {})
         self.company = config.get("company", "")
-        self.client = anthropic.Anthropic()
-        self.model = self.settings.get("model", MODEL)
+        if _backend(self.settings) == "api":
+            self.backend = ApiBackend(self.settings.get("model", MODEL))
+        else:
+            # The CLI's own model list can lag the API's, so it gets its own setting.
+            self.backend = CliBackend(CliBackend.find(self.settings.get("claude_path", "")),
+                                      self.settings.get("cli_model", ""))
+        self.model = self.backend.model
 
     @staticmethod
     def available(config: dict) -> bool:
         settings = config.get("ai", {})
-        has_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")
-        return bool(settings.get("enabled", True) and has_key)
+        return bool(settings.get("enabled", True) and _backend(settings))
 
     def screen(self, leads: list[dict]) -> list[tuple[str, int, str]]:
         """(key, fit, reason) for each lead Claude rated. Leads in a refused or failed batch are left out."""
@@ -131,10 +133,9 @@ class LeadAnalyst:
 
     def analyze(self, lead: dict, documents: list[tuple[str, bytes]]) -> dict:
         """Bid / no-bid analysis. `documents` are (file name, bytes) of PDF or text files."""
-        content = [_document_block(name, data) for name, data in documents]
-        content.append({"type": "text", "text": "Analyze this tender.\n\n" + _describe(0, lead, full=True)})
         result = self._parse(
-            SYSTEM_ANALYZE.format(company=self.company), content, BidAnalysis, effort="high", max_tokens=16000
+            SYSTEM_ANALYZE.format(company=self.company), "Analyze this tender.\n\n" + _describe(0, lead, full=True),
+            BidAnalysis, effort="high", max_tokens=16000, documents=documents,
         )
         if result is None:
             raise RuntimeError("Claude did not return an analysis (declined or empty). Try again later.")
@@ -162,31 +163,18 @@ class LeadAnalyst:
             return [""] * len(texts)
         return [text.strip() for text in result.texts]
 
-    def _parse(self, system: str, content, schema, effort: str, max_tokens: int):
-        """One structured call. None when Claude declines or the call fails, so one batch cannot stop a run."""
-        import anthropic
+    def _parse(self, system: str, text: str, schema, effort: str, max_tokens: int, documents=()):
+        return self.backend.parse(system, text, schema, effort, max_tokens, documents)
 
-        try:
-            response = self.client.beta.messages.parse(
-                model=self.model,
-                max_tokens=max_tokens,
-                betas=[FALLBACK_BETA],
-                fallbacks="default",
-                output_config={"effort": effort},
-                system=system,
-                messages=[{"role": "user", "content": content}],
-                output_format=schema,
-            )
-        except anthropic.APIStatusError as error:
-            print(f"  ! Claude API error {error.status_code}: {error.message}", flush=True)
-            return None
-        except anthropic.APIConnectionError as error:
-            print(f"  ! Claude API not reachable: {error}", flush=True)
-            return None
-        if response.stop_reason in ("refusal", "max_tokens"):
-            print(f"  ! Claude stopped: {response.stop_reason}", flush=True)
-            return None
-        return response.parsed_output
+
+def _backend(settings: dict) -> str:
+    """"api", "cli" or "" (off). `auto` prefers the API key, so a key someone set keeps working as before."""
+    choice = settings.get("backend", "auto")
+    if choice in ("auto", "api") and ApiBackend.available():
+        return "api"
+    if choice in ("auto", "cli") and CliBackend.find(settings.get("claude_path", "")):
+        return "cli"
+    return ""
 
 
 def _describe(index: int, lead: dict, full: bool = False) -> str:
@@ -216,12 +204,3 @@ def _describe(index: int, lead: dict, full: bool = False) -> str:
             f"Portal link: {lead.get('url', '')}",
         ]
     return "\n".join(line for line in lines if line)
-
-
-def _document_block(name: str, data: bytes) -> dict:
-    if name.lower().endswith(".pdf"):
-        encoded = base64.standard_b64encode(data).decode("ascii")
-        source = {"type": "base64", "media_type": "application/pdf", "data": encoded}
-    else:
-        source = {"type": "text", "media_type": "text/plain", "data": data.decode("utf-8", errors="replace")}
-    return {"type": "document", "source": source, "title": name}

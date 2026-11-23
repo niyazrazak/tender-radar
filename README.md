@@ -57,17 +57,20 @@ Log: `logs/tender-radar.log`. Changes to keywords and sources apply at the next 
 
 ## AI fit and bid analysis (optional)
 
-Put an Anthropic API key in `.env` (copy `.env.example`), then run `install-service` again:
+No API key is needed. When Claude Code is installed and logged in with your Claude subscription, the tool runs it in the background (`claude -p`, no tools) for the AI parts. Check with `claude` in a terminal once, then run `install-service` again.
 
-```bash
-cp .env.example .env    # then set ANTHROPIC_API_KEY
-```
+To use the API instead, put a key in `.env` (copy `.env.example`). With a key set, the API is used first. `ai.backend` forces one: `auto` (default), `api` or `cli`.
+
+- `ai.cli_model`: model for the CLI, for example `opus` or `sonnet`. Empty uses the CLI's default.
+- `ai.claude_path`: where `claude` is, when it is not in `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin`.
+- CLI calls count against your subscription's usage limits. A check screens at most `ai.max_per_run` leads, 10 per call.
+- With the CLI, uploaded PDFs are sent as their text. Scanned PDFs without a text layer give no text.
 
 - **AI fit.** After each check, Claude reads every open tender that hits at least one keyword (`ai.screen_min_score`) and rates the fit with your business from 0 to 10, with a one-line reason. The fit shows next to the keyword score. Sort by **AI fit** to see the best first. A tender with fit `ai.min_fit` (default 6) or more shows up even when its keyword score is low, so tenders written in other words are not missed. Each tender is rated once; at most `ai.max_per_run` (150) a check.
 - **Bid / no-bid.** In a lead's panel, **Analyze tender** asks Claude for a recommendation, scope, requirements, key dates, risks and questions for the buyer. **Upload documents…** adds the tender documents (PDF or text) you bought from the portal, for a full analysis. Documents are kept in `data/documents/`.
 - **Translation fallback.** When Google rate-limits translation, Claude translates the rest (`ai.translate_fallback`).
 - Company profile: `company` in `config.json`. Claude rates against it, so describe what you sell.
-- Model: `claude-opus-5-5` (`ai.model`). Without a key, everything else works and the AI parts stay off.
+- API model: `claude-opus-5-5` (`ai.model`). Without a key or a logged-in CLI, everything else works and the AI parts stay off.
 
 ## Alerts by email and Telegram
 

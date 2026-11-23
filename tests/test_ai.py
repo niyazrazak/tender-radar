@@ -1,12 +1,14 @@
 """The AI module against a local stand-in for the Messages API: checks what we send and how we read answers."""
 
 import json
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
 from tender_radar.ai import MODEL, LeadAnalyst
+from tender_radar.claude_backends import CliBackend
 
 
 class StubAPI:
@@ -91,9 +93,10 @@ def test_analyze_attaches_pdf_documents(api):
     assert content[-1]["type"] == "text"
 
 
-def test_off_without_a_key(monkeypatch):
+def test_off_without_a_key_or_cli(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    monkeypatch.setattr(CliBackend, "find", staticmethod(lambda configured="": ""))
     assert not LeadAnalyst.available({"ai": {"enabled": True}})
 
 
@@ -106,3 +109,57 @@ def test_pitch_names_the_winner_and_uses_the_profile(api):
     assert pitch["subject"] == "Mobile app for your new contract"
     body = api.requests[0]["body"]
     assert "Flutter developer" in body["system"] and "Winner: Alpha Co" in body["messages"][0]["content"]
+
+
+# A stand-in for `claude -p`: saves its arguments and stdin, prints the reply in the test's FAKE_REPLY.
+FAKE_CLI = """#!{python}
+import json, os, sys
+open(os.environ["FAKE_LOG"], "w").write(json.dumps({{"args": sys.argv[1:], "stdin": sys.stdin.read()}}))
+print(os.environ["FAKE_REPLY"])
+"""
+
+
+@pytest.fixture
+def cli(monkeypatch, tmp_path):
+    script = tmp_path / "claude"
+    script.write_text(FAKE_CLI.format(python=sys.executable))
+    script.chmod(0o755)
+    log = tmp_path / "log.json"
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    monkeypatch.setenv("FAKE_LOG", str(log))
+
+    def reply(data, is_error=False):
+        result = data if isinstance(data, str) else json.dumps(data)
+        subtype = "error" if is_error else "success"
+        monkeypatch.setenv("FAKE_REPLY", json.dumps({"subtype": subtype, "is_error": is_error, "result": result}))
+
+    reply.config = {"company": "ERP house", "ai": {"backend": "cli", "claude_path": str(script)}}
+    reply.sent = lambda: json.loads(log.read_text())
+    return reply
+
+
+def test_cli_backend_needs_no_key_and_reads_fits(cli):
+    cli({"results": [{"index": 0, "fit": 8, "reason": "ERP rollout"}]})
+    assert LeadAnalyst.available(cli.config)
+    assert LeadAnalyst(cli.config).screen([lead("a", "ERP implementation")]) == [("a", 8, "ERP rollout")]
+    sent = cli.sent()
+    assert "ERP house" in sent["args"][sent["args"].index("--system-prompt") + 1]
+    assert json.loads(sent["args"][sent["args"].index("--json-schema") + 1])["type"] == "object"
+    assert sent["args"][sent["args"].index("--tools") + 1] == ""
+    assert "[0] ERP implementation" in sent["stdin"]
+
+
+def test_cli_backend_inlines_text_documents(cli):
+    cli("```json\n" + json.dumps({
+        "recommendation": "consider", "reasoning": "Maybe.", "summary": "An ERP.", "scope": [], "requirements": [],
+        "key_dates": [], "risks": [], "questions": [], "documents_read": True,
+    }) + "\n```")
+    analysis = LeadAnalyst(cli.config).analyze(lead("a", "ERP"), [("terms.txt", b"Bond 2 percent")])
+    assert analysis["recommendation"] == "consider"
+    assert '<document name="terms.txt">\nBond 2 percent' in cli.sent()["stdin"]
+
+
+def test_cli_error_is_skipped_not_fatal(cli):
+    cli("You have hit your usage limit", is_error=True)
+    assert LeadAnalyst(cli.config).screen([lead("a", "x")]) == []

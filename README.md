@@ -1,5 +1,7 @@
 # Tender Radar
 
+[![pre-commit](https://github.com/niyazrazak/tender-radar/actions/workflows/pre-commit.yml/badge.svg?branch=main)](https://github.com/niyazrazak/tender-radar/actions/workflows/pre-commit.yml)
+
 Collects public tender / RFQ leads from GCC government procurement portals, keeps only the ones that match what you sell, and gives you a daily list with links.
 
 ## Sources

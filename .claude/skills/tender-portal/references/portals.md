@@ -337,6 +337,35 @@ are starting points, not verified facts.
 - **Not possible (login / invitation only)**: QatarEnergy (Mushtaryat,
   JAGGAER; robots.txt disallows `/esop`), Ooredoo, Qatar Airways, QF
   supplier portal.
+- **Gulf Times newspaper adverts** — paused 2026-11-23, no OCR engine.
+  Semi-government bodies and companies (e.g. Qatar Primary Materials
+  Company, tenders AWALIA/TD/2026/43 and /44 on 2026-11-23) advertise
+  tenders that are on no portal.
+  - **Access:** `https://www.gulf-times.com/pdfs` lists the daily PDFs as
+    `div.pdf-item` (`.pdf-title` = Main / Sport / Business) linking
+    `/gulftimes/uploads/pdf/YYYY/MM/DD/<section>-YYYYMMDD-1-<ts>.pdf?ts=<ts>`.
+    robots.txt allows `/pdfs` and the uploads, with `Crawl-delay: 2` for all
+    agents. Main is about 18 MB and 12 pages; Business about 4 MB and 3 pages.
+    `/classified` PDFs have a text layer but held only jobs and rentals.
+  - **Adverts are scanned images** with no text layer. Layout: a boxed table
+    (Tender No., Subject, document fee, bond, offer type, closing date), terms
+    below, the buyer's contact block at the bottom. Needs OCR.
+  - **Why paused:** Homebrew has no prebuilt Tesseract for macOS 26 on Intel,
+    and compiling fails because the Command Line Tools are too old. Docker is
+    not installed. The Python OCR packages need onnxruntime or PyTorch, which
+    have no build for Python 3.14 on Intel macOS.
+  - **To resume:**
+    - Update the Command Line Tools, then `brew install tesseract`, or use
+      Claude vision with an API key.
+    - OCR in the client (`get_pdf_ocr`, pdftoppm + tesseract per page), so
+      fixtures record text and CI needs no OCR tools.
+    - Cache OCR per issue under `data/`: one issue a day, but four checks a day.
+    - Make the source exempt from the "0 tenders = failed" alert in
+      `cli.collect`, since a day with no adverts is normal.
+    - Docker needs `tesseract-ocr` and `poppler-utils`.
+  - Al Sharq (advert pages are images), The Peninsula (no tenders seen) and
+    Al Raya (its advert lists sit under `/api/*`, which robots.txt disallows)
+    were also checked and are not worth building.
 - **QAFAC** (Qatar Fuel Additives, `https://www.qafac.com.qa/tenders/`):
   checked 2026-11-23, not built because it is rarely used. Public WordPress
   page, robots.txt allows all. Internet Archive snapshots: 404 in 2025-07,

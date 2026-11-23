@@ -341,6 +341,24 @@ are starting points, not verified facts.
 - **Not possible (login / invitation only)**: QatarEnergy (Mushtaryat,
   JAGGAER; robots.txt disallows `/esop`), Ooredoo, Qatar Airways, QF
   supplier portal.
+- **Barwa Real Estate and Msheireb Properties**: not possible, checked
+  2026-11-23. Neither is on Monaqasat, and neither website lists tenders.
+  Both run Oracle Fusion supplier portals, like Sidra, but unlike Sidra
+  neither publishes its negotiations: the Sidra parser pointed at their
+  `NegotiationAbstracts` pages returns 0 rows, while Sidra returns 20.
+  Tenders go to registered suppliers only. The way in is supplier
+  registration:
+  - Barwa: `https://www.barwa.com.qa/supplierregistration` (form on
+    `fa-euhn-saasfaprod1.fa.ocs.oraclecloud.com`, `prcBuId=300000002726358`,
+    plus a PDF registration manual). Large projects sometimes get a
+    prequalification invitation PDF under `/News Attachments/` (one in
+    2021), sent to the Tender Department, 15th floor, Barwa Al Sadd Tower 1.
+  - Msheireb: `https://www.msheirebproperties.com/supplier-portal/` (login
+    and registration on `fa-ewao-saasfaprod1.fa.ocs.oraclecloud.com`, with
+    manuals and videos, one on submitting a bid response). Its big
+    construction tenders are reported by MEED.
+  - Re-check: if either portal's `NegotiationAbstracts` page starts
+    returning rows, copy `sources/sidra.py` with the new URL.
 - **Gulf Times newspaper adverts** — paused 2026-11-23, no OCR engine.
   Semi-government bodies and companies (e.g. Qatar Primary Materials
   Company, tenders AWALIA/TD/2026/43 and /44 on 2026-11-23) advertise

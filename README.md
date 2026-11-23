@@ -21,7 +21,7 @@ Collects public tender / RFQ leads from GCC government procurement portals, keep
 | Tender Board (tenderboard.gov.bh) | Bahrain | Current tenders, with details (brief, fee, bond) |
 
 All are public pages that need no login. The tool reads only what each portal's robots.txt allows, and waits 1 second between requests.
-Kahramaa, Ashghal, HMC and Qatar Foundation publish on Monaqasat. QatarEnergy, Ooredoo and Qatar Airways need a supplier login, so they are not collected.
+Kahramaa, Ashghal, HMC and Qatar Foundation publish on Monaqasat. QatarEnergy, Ooredoo, Qatar Airways, Barwa and Msheireb Properties send tenders only to registered suppliers, so they are not collected: register on their supplier portals to receive them.
 
 ## Setup
 

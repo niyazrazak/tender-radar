@@ -314,6 +314,9 @@
     "qfa": {
       "enabled": true,
       "max_pages": 5
+    },
+    "sidra": {
+      "enabled": true
     }
   },
   "schedule": {

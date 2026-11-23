@@ -95,6 +95,29 @@ you learn something new about a portal (a changed label, a new quirk).
   by Cloudflare (`[email protected]`) and are stripped.
 - Auctions (title starts with "Auction") are skipped.
 
+## Sidra Medicine — Qatar (`sources/sidra.py`)
+
+- Linked from `https://www.sidra.org/procurement-and-contracts/` ("active
+  tenders", a bit.ly link). The list is Sidra's Oracle Fusion
+  `NegotiationAbstracts?prcBuId=300000003054324` on
+  `fa-epxn-saasfaprod1.fa.ocs.oraclecloud.com`. Public, no login. sidra.org
+  robots.txt allows all; the Oracle host has no robots.txt (404). Checked
+  2026-11-23.
+- **Oracle ADF loopback:** the first GET returns only a script. Take the id
+  from `_addParam(query, "_afrLoop", "<id>")` and GET the same URL again with
+  `&_afrLoop=<id>&_afrWindowMode=0&_afrWindowId=null` in the same session
+  (cookies `JSESSIONID`, `ORA_FUSION_PREFS`). That returns server HTML.
+- **Rows:** `tr[_afrrk]` (ADF row key). The CSS classes (`xem`, `x2ey`) are
+  generated; do not use them. Cells: negotiation number, title, type
+  (RFQ/RFI/...), status (Active/Closed), posting, open and close dates.
+- **Dates:** `11/23/26 8:11 AM`, M/D/YY in UTC (the page says "Coordinated
+  Universal Time"). Add 3 h for the Qatar date.
+- **Ids:** amendments change the number (`20731,1`, `20442-2`).
+- About 25 rows, newest first; `_rowCount="-1"`. Further rows and the
+  "Details" buttons are ADF partial-page requests, not URLs. Not collected.
+- Mostly medical and research supplies; about 10% IT (RFIs for systems,
+  Oracle). Large facilities contracts go to Monaqasat under Qatar Foundation.
+
 ## Etimad — Saudi Arabia (`sources/etimad.py`)
 
 - Owner: Ministry of Finance, Saudi Arabia. Base: `https://tenders.etimad.sa`.

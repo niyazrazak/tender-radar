@@ -290,25 +290,26 @@
       "الهويه البصريه",
       "مطبوعات",
       "زي موحد",
-      "ملابس"
+      "ملابس",
+      "ups",
+      "الطاقه غير المنقطعه"
     ],
     "activity_codes": {
       "strong": ["6201", "631201"],
-      "weak": ["6202", "6209", "6311", "465102", "474150"]
+      "weak": ["6202", "6311", "465102", "474150"]
     }
   },
   "sources": {
     "monaqasat": {
       "enabled": true,
       "max_pages": 30,
-      "awarded_pages": 10,
+      "awarded_pages": 100,
       "fetch_details": true
     },
     "etimad": {
       "enabled": false,
       "publish_window": "week",
-      "max_pages": 40
-,
+      "max_pages": 40,
       "delay_seconds": 3
     },
     "oman_tender_board": {

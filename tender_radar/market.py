@@ -58,6 +58,26 @@ def market_report(leads: list[dict], min_score: int) -> dict:
     }
 
 
+def company_names(extra: dict) -> set:
+    """Every winner and bidder name in one award report, for translation."""
+    return {entry["company"] for part in ("winners", "bids") for entry in extra.get(part, []) if entry.get("company")}
+
+
+def add_company_english(extra: dict, english):
+    """Sets company_en on each winner and bid. `english(text)` returns the cached English."""
+    for part in ("winners", "bids"):
+        for entry in extra.get(part, []):
+            entry["company_en"] = english(entry.get("company", ""))
+
+
+def add_report_english(report: dict, english):
+    """English names next to the originals in a market report."""
+    for row in report["competitors"] + report.get("partners", []):
+        row["company_en"] = english(row["company"])
+    for row in report["recent"]:
+        row["winners_en"] = [english(name) for name in row["winners"]]
+
+
 def _top_competitors(competitors: dict) -> list[dict]:
     rows = [
         {

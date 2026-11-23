@@ -166,7 +166,7 @@ function pitchBlock(lead, busy) {
   const winners = lead.extra?.winners || [];
   if (lead.status !== "awarded" || !winners.length) return "";
   const off = !app.aiEnabled;
-  const who = winners.map((w) => `<div><b dir="auto">${esc(w.company)}</b>${w.cr ? ` <span class="cap">CR ${esc(w.cr)}</span>` : ""}
+  const who = winners.map((w) => `<div><b>${bilingual(w.company_en, w.company)}</b>${w.cr ? ` <span class="cap">CR ${esc(w.cr)}</span>` : ""}
       ${w.value ? ` <span class="cap">· ${esc(w.value)} ${esc(lead.currency)}</span>` : ""}</div>`).join("");
   const p = lead.pitch;
   const draft = p ? `<div class="pitch"><div class="cap">Subject</div><p>${esc(p.subject)}</p>
@@ -198,7 +198,7 @@ function bidsBlock(lead) {
   const bids = lead.extra?.bids || [];
   if (!bids.length) return "";
   const rows = bids.map((bid) => `<tr class="${bid.note.includes("مستبعد") ? "excluded" : ""}">
-      <td dir="auto">${esc(bid.company)}</td><td class="num">${esc(bid.value)}</td><td dir="auto">${esc(bid.result)}</td></tr>`).join("");
+      <td>${bilingual(bid.company_en, bid.company)}</td><td class="num">${esc(bid.value)}</td><td dir="auto">${esc(bid.result)}</td></tr>`).join("");
   return `<div class="block"><h4>Bids</h4><table class="bids"><tr><th>Company</th><th>Bid (${esc(lead.currency)})</th><th>Result</th></tr>${rows}</table></div>`;
 }
 
@@ -235,11 +235,11 @@ const market = {
   render(data) {
     const money = (n, currency = "QAR") => (n ? `${Math.round(n).toLocaleString("en-US")} ${currency}` : "—");
     const competitors = data.competitors.map((c) => `<tr>
-        <td dir="auto">${esc(c.company)}</td><td class="num">${c.relevant_wins}</td><td class="num">${c.wins}</td>
+        <td>${bilingual(c.company_en, c.company)}</td><td class="num">${c.relevant_wins}</td><td class="num">${c.wins}</td>
         <td class="num">${c.bids}</td><td class="num">${c.win_rate === null ? "—" : `${Math.round(c.win_rate * 100)}%`}</td>
         <td class="num">${money(c.won_value)}</td></tr>`).join("");
     const partners = (data.partners || []).map((p) => `<tr>
-        <td dir="auto">${esc(p.company)}</td><td class="num">${p.relevant_wins}</td>
+        <td>${bilingual(p.company_en, p.company)}</td><td class="num">${p.relevant_wins}</td>
         <td class="num">${money(p.relevant_value, p.currency)}</td>
         <td dir="auto">${p.largest ? `${esc(p.largest.title)} <span class="cap">${money(p.largest.value, p.currency)}</span>` : ""}</td>
         <td dir="auto" class="cap">${esc(p.buyers.join("; "))}</td></tr>`).join("");
@@ -247,7 +247,7 @@ const market = {
         <td class="num">${b.relevant}</td><td class="num">${b.awards}</td><td class="num">${money(b.value, b.currency)}</td></tr>`).join("");
     const recent = data.recent.map((r) => `<tr>
         <td><a href="${esc(r.url)}" target="_blank" rel="noopener" dir="auto">${esc(r.title)}</a><div class="cap" dir="auto">${esc(r.buyer)}</div></td>
-        <td dir="auto">${esc(r.winners.join("; "))}</td><td class="num">${money(r.value, r.currency)}</td>
+        <td>${r.winners.map((name, i) => bilingual((r.winners_en || [])[i], name)).join("")}</td><td class="num">${money(r.value, r.currency)}</td>
         <td class="num">${r.bidders || "—"}</td>
         <td class="num">${r.lowest_bid ? `${money(r.lowest_bid, "")} – ${money(r.highest_bid, "")}` : "—"}</td></tr>`).join("");
     const empty = !data.awarded
@@ -313,7 +313,7 @@ function facts(lead) {
     ["Bid bond", esc(fmtBond(lead)) || "Not listed"],
     ["Up-front cost", upfrontFact(lead)],
     ["Small company", smallFact(lead)],
-    ["Winner", `<span dir="auto">${esc((lead.extra?.winners || []).map((w) => w.company).join("; "))}</span>`],
+    ["Winner", (lead.extra?.winners || []).map((w) => bilingual(w.company_en, w.company)).join("")],
     ["Award value", money(lead.extra?.award_value)],
     ["Bidders", lead.extra?.bidders ? esc(lead.extra.bidders) : ""],
     ["First seen", esc(lead.first_seen.slice(0, 10))],

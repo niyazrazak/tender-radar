@@ -28,13 +28,16 @@ class Translator:
         self.translate_many([text])
         return self.cached(text)
 
-    def translate_many(self, texts) -> int:
-        """Translates every uncached Arabic text, in batches. Returns how many were added to the cache."""
+    def translate_many(self, texts, fallback_first: bool = False) -> int:
+        """Translates every uncached Arabic text, in batches. Returns how many were added to the cache.
+        `fallback_first` sends texts to the fallback (Claude) before Google: Google translates the words
+        of a company name ("Canary Zoo" becomes "Kaniri Zoo"), Claude keeps the name."""
         added = 0
         for batch in _batches(self._uncached(texts)):
             if self.blocked and not self.fallback:
                 break
-            english = self.fallback(batch) if self.blocked else self._fetch(batch)
+            use_fallback = self.fallback and (self.blocked or fallback_first)
+            english = self.fallback(batch) if use_fallback else self._fetch(batch)
             pairs = [(src, en) for src, en in zip(batch, english) if en]
             self.db.executemany("INSERT OR REPLACE INTO translations VALUES (?, ?)", pairs)
             self.db.commit()

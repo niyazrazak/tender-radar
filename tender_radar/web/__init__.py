@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, urlparse
 
 from tender_radar.ai import LeadAnalyst
 from tender_radar.cli import DEFAULT_MIN_FIT, ROOT, TRANSLATED_FIELDS, TenderRadar
-from tender_radar.market import market_report
+from tender_radar.market import add_company_english, add_report_english, market_report
 from tender_radar.runs import RunLog
 from tender_radar.small_company import DEFAULT_MAX_UPFRONT_USD, assess
 from tender_radar.scheduler import Scheduler
@@ -128,6 +128,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         for lead in leads:
             for field in TRANSLATED_FIELDS:
                 lead[f"{field}_en"] = translator.cached(lead[field])
+            add_company_english(lead["extra"], translator.cached)
             lead["small"] = assess(lead, max_upfront)
         self._json({
             "small_company": {"enabled": bool(small.get("enabled")), "max_upfront_usd": max_upfront},
@@ -161,6 +162,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         for lead in leads:
             lead["title_en"], lead["buyer_en"] = translator.cached(lead["title"]), translator.cached(lead["buyer"])
         report = market_report(leads, self._config().get("min_score", 3))
+        add_report_english(report, translator.cached)
         report["awarded_total"] = store.db.execute("SELECT COUNT(*) FROM leads WHERE status = 'awarded'").fetchone()[0]
         self._json(report)
 

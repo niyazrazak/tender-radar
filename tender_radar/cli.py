@@ -7,6 +7,7 @@ from pathlib import Path
 from tender_radar.ai import LeadAnalyst
 from tender_radar.http_client import PoliteClient
 from tender_radar.lead import Lead
+from tender_radar.market import company_names
 from tender_radar.report import LeadReport
 from tender_radar.runs import RunLog
 from tender_radar.scorer import KeywordScorer
@@ -160,7 +161,10 @@ class TenderRadar:
         for field in TRANSLATED_FIELDS:  # titles first: long briefs are most likely to hit the rate limit
             rows = self.store.db.execute(f"SELECT {field} FROM leads")
             added += self.translator.translate_many(row[0] for row in rows)
-        print(f"Translated {added} new texts (titles, buyers, categories, activities, briefs).", flush=True)
+        rows = self.store.db.execute("SELECT extra FROM leads WHERE status = 'awarded'")
+        names = set().union(*(company_names(json.loads(r[0] or "{}")) for r in rows))
+        added += self.translator.translate_many(names, fallback_first=True)
+        print(f"Translated {added} new texts (titles, buyers, categories, activities, briefs, companies).", flush=True)
         return added
 
 

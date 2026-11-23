@@ -534,6 +534,12 @@ function fmtDate(iso) {
   return isNaN(d) ? iso : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** English first, the original below it when they differ: company names are read in both. */
+function bilingual(english, original) {
+  if (!english || english === original) return `<span dir="auto">${esc(original)}</span>`;
+  return `<span>${esc(english)}</span><div class="orig" dir="auto">${esc(original)}</div>`;
+}
+
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }

@@ -1,6 +1,6 @@
 # Install once:  pre-commit install
 # Run on all files:  pre-commit run --all-files
-exclude: ^(data|reports|logs|\.venv)/
+exclude: ^(data|reports|logs|\.venv|tests/fixtures)/  # fixtures are portal pages kept byte-for-byte
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

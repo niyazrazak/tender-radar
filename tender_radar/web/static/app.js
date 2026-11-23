@@ -35,7 +35,7 @@ const api = {
 class Dashboard {
   constructor() {
     this.leads = [];
-    this.filters = { tab: "active", q: "", country: "", fee: "", sort: "match", quick: "", scopeAll: false };
+    this.filters = { tab: "active", q: "", country: "", fee: "", bond: "", sort: "match", quick: "", scopeAll: false };
     this.shown = PAGE_SIZE;
     this.selected = -1;
     this.visible = [];
@@ -103,7 +103,8 @@ class Dashboard {
 
   render() {
     const today = todayISO();
-    const base = this.leads.filter((lead) => this.matchesSearch(lead) && this.matchesCountry(lead) && this.matchesFee(lead));
+    const base = this.leads.filter((lead) => this.matchesSearch(lead) && this.matchesCountry(lead)
+      && this.matchesFee(lead) && this.matchesBond(lead));
     renderSummary(base, today, this.filters.quick);
     renderTabs(base, this.filters.tab);
     this.visible = sortLeads(base.filter((l) => this.matchesTab(l) && this.matchesQuick(l, today)), this.filters.sort);
@@ -130,6 +131,16 @@ class Dashboard {
 
   matchesFee(lead) {
     return !this.filters.fee || feeKind(lead) === this.filters.fee;
+  }
+
+  matchesBond(lead) {
+    const filter = this.filters.bond;
+    if (!filter) return true;
+    if (filter in BOND_LIMITS_USD) {
+      const usd = bondUSD(lead);
+      return usd !== null && usd <= BOND_LIMITS_USD[filter] && (filter !== "over100k" || usd > 100000);
+    }
+    return bondKind(lead) === filter;
   }
 
   matchesTab(lead) {
@@ -159,6 +170,7 @@ class Dashboard {
     $("q").addEventListener("input", (e) => { this.filters.q = e.target.value; refilter(); });
     $("country").addEventListener("change", (e) => { this.filters.country = e.target.value; refilter(); });
     $("fee").addEventListener("change", (e) => { this.filters.fee = e.target.value; refilter(); });
+    $("bond").addEventListener("change", (e) => { this.filters.bond = e.target.value; refilter(); });
     $("sort").addEventListener("change", (e) => { this.filters.sort = e.target.value; refilter(); });
     $("scopeAll").addEventListener("change", (e) => { this.filters.scopeAll = e.target.checked; this.loadLeads(); });
     $("tabs").addEventListener("click", (e) => {
@@ -266,7 +278,8 @@ function renderList(leads, selected, lang, today) {
         <div class="title" dir="auto">${isNew ? '<span class="badge new">New</span>' : ""}${status}${esc(title)}</div>
         <div class="meta"><span dir="auto">${esc(lead.buyer_en || lead.buyer || "Unknown buyer")}</span>
           <span class="sep"></span><span>${esc(lead.country)}</span>
-          ${lead.ref_no ? `<span class="sep"></span><span>${esc(lead.ref_no)}</span>` : ""}</div>
+          ${lead.ref_no ? `<span class="sep"></span><span>${esc(lead.ref_no)}</span>` : ""}
+          ${bondKind(lead) !== "unlisted" ? `<span class="sep"></span><span>Bond ${esc(fmtBond(lead))}</span>` : ""}</div>
         ${chips(lead.matched)}
       </div>
       <div class="lane-fee">${feeLabel(lead)}</div>
@@ -316,33 +329,67 @@ function sortLeads(leads, sort) {
   return [...leads].sort(orders[sort]);
 }
 
-/* Fees: "" means the portal did not list one; 0 means the documents are free. */
+/* Money. Fee and bond: "" means the portal did not list one; 0 means none is charged. */
 
-function feeAmount(text) {
+function moneyAmount(text) {
   if (text === null || text === undefined || String(text).trim() === "") return null;
   const amount = parseFloat(String(text).replace(/,/g, ""));
   return isNaN(amount) ? null : amount;
 }
 
-// Gulf currencies are pegged to the US dollar, so fixed rates compare fees across countries exactly.
+// Gulf currencies are pegged to the US dollar (Kuwait's to a basket, so its rate is approximate):
+// fixed rates compare amounts across countries.
 const USD_PER = { QAR: 1 / 3.64, SAR: 1 / 3.75, OMR: 1 / 0.3845, AED: 1 / 3.6725, KWD: 3.25, BHD: 1 / 0.376 };
 
+// "Up to" limits for the bond filter; a bond of 0 counts as within every limit.
+const BOND_LIMITS_USD = { upto5k: 5000, upto25k: 25000, upto100k: 100000, over100k: Infinity };
+
+function toUSD(amount, currency) {
+  return amount * (USD_PER[currency] ?? 1);
+}
+
 function feeUSD(lead) {
-  const amount = feeAmount(lead.doc_fee);
-  if (amount === null) return Infinity;  // not listed sorts last
-  return amount * (USD_PER[lead.currency] ?? 1);
+  const amount = moneyAmount(lead.doc_fee);
+  return amount === null ? Infinity : toUSD(amount, lead.currency);  // not listed sorts last
+}
+
+function fmtMoney(amount, currency) {
+  return `${amount.toLocaleString("en-US", { maximumFractionDigits: 3 })} ${currency || ""}`.trim();
+}
+
+/* Bid bond: an amount, or (Oman) a percent of the bid such as "2%". */
+
+function bondKind(lead) {
+  const text = String(lead.bond ?? "").trim();
+  if (text.endsWith("%")) return "percent";
+  const amount = moneyAmount(text);
+  return amount === null ? "unlisted" : amount === 0 ? "none" : "amount";
+}
+
+function bondUSD(lead) {
+  const kind = bondKind(lead);
+  if (kind === "none") return 0;
+  return kind === "amount" ? toUSD(moneyAmount(lead.bond), lead.currency) : null;
+}
+
+function fmtBond(lead) {
+  const kind = bondKind(lead);
+  if (kind === "percent") return `${lead.bond.trim()} of bid value`;
+  if (kind === "none") return "None required";
+  if (kind === "amount") return fmtMoney(moneyAmount(lead.bond), lead.currency);
+  return "";
 }
 
 function feeKind(lead) {
-  const amount = feeAmount(lead.doc_fee);
+  const amount = moneyAmount(lead.doc_fee);
   return amount === null ? "unlisted" : amount === 0 ? "free" : "paid";
 }
 
 function fmtFee(lead) {
-  const amount = feeAmount(lead.doc_fee);
+  const amount = moneyAmount(lead.doc_fee);
   if (amount === null) return "";
   if (amount === 0) return "Free";
-  return `${amount.toLocaleString("en-US", { maximumFractionDigits: 3 })} ${lead.currency || ""}`.trim();
+  return fmtMoney(amount, lead.currency);
 }
 
 function feeLabel(lead) {

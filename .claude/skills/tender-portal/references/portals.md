@@ -37,7 +37,63 @@ you learn something new about a portal (a changed label, a new quirk).
   `مكان التنفيذ أو التسليم`, `مدة العقد (عدد الأشهر)`, `نظام المظاريف`.
 - Labels mix hamza forms (`الإغلاق` on the card, `الاقفال` on the detail
   page). When a field goes empty, check the hamza first.
+- **Award report** (public, no login):
+  `/TendersOnlineServices/TenderCompaniesDetails/{id}`, the "التقرير" button
+  on an awarded card. Same id as the tender. Tables, told apart by header:
+  - winners: `اسم الشركة | رقم السجل التجاري | القيمة الموافق عليها | ...`
+    (approved value as `284,050.00 رق`; can list more than one winner)
+  - technical opening: exactly `اسم الشركة | رقم السجل التجاري`, one row per
+    bidder. Missing for single-envelope tenders.
+  - financial opening: `... | قيمة العطاء | نسبة القيمة المحلية |
+    النتيجة المالية | ملاحظات`; `مستبعد` in the notes = excluded bid.
+  Stored in `lead.extra` as `winners`, `award_value`, `bidders`, `bids`,
+  `award_report`. Fetched once, when a tender is first seen as awarded,
+  including tenders stored earlier as open (the id does not change).
+- The awarded list is newest first, about 20 a page and 1-2 days a page.
+  1,243 pages in total.
+- Monaqasat already carries the tenders of Kahramaa, Ashghal, HMC, Qatar
+  Foundation, Qatar University and most ministries (checked 2026-11-23).
+  Separate sources for them would only add duplicates.
 - Currency: QAR.
+
+## Mwani Qatar — Qatar (`sources/mwani.py`)
+
+- Qatar Ports Management. Not on Monaqasat.
+- `robots.txt` blocks only `/_layouts/`, `/_vti_bin/`, `/_catalogs/`.
+- The page `/English/Procurement/Pages/TendersAuctions.aspx` is filled by
+  JavaScript from the anonymous SharePoint REST endpoint
+  `/_api/web/lists/GetByTitle('Tenders%20and%20Auctions')/items`
+  (`Accept: application/json;odata=verbose`). `$top` and `$orderby` work.
+  `$skip` is not supported for list items; at 2-3 items a month, the newest
+  `max_items` (50) is enough.
+- Fields: `Id` (stable), `Title`, `Arabic_x0020_Title` (often the same
+  English text), `Tender_x0020_Number`, `Category` (`Tender;مناقصة` or
+  `Auction;مزاد علني`; auctions are skipped), `Start_x0020_Date`,
+  `Closing_x0020_Date`, `Tender_x0020_Fee`, `Tender_x0020_Bond_x0020_Value`,
+  `Submission_x0020_Method`. The "content" fields hold only a contact email.
+- Dates are Qatar midnight stored in UTC (`2026-11-11T21:00:00Z` =
+  2026-11-12). Add 3 hours before taking the date.
+- No detail page, no category; `url` is the list page.
+
+## Qatar Football Association — Qatar (`sources/qfa.py`)
+
+- Not on Monaqasat. About 11 tenders a year, several IT and digital.
+- `robots.txt` allows generic agents, blocks named AI crawlers, and sets
+  `Content-Signal: search=yes,ai-train=no,use=reference`. tender-radar keeps
+  a link back to the list (reference use). Never use QFA content for training.
+- List: `GET /en/tenders?page={page}`, 4 tenders a page, newest first,
+  about 33 pages. Past the last page the list is empty.
+- Each tender is a `.tender-box`: `.tender-heading p` (title, often with the
+  tender number), `.tender-desc` (bond text), `.tag` x2 (type, category),
+  `p.text-primary` labels `Issue Date` / `Closing Date` with an `h4` value
+  (`DD-MM-YYYY`), `h6` = document fee in QR.
+- The id is the tender number, written `T/10/2026` or `T\11/2026`,
+  normalized to `T/NN/YYYY`. A few older tenders have none; the id is then
+  issue date + title.
+- The bond wording varies ("bond in the amount of 25,000 QR",
+  "15,000 QR Tender Bond", or only "30,000 QR"). Contact emails are hidden
+  by Cloudflare (`[email protected]`) and are stripped.
+- Auctions (title starts with "Auction") are skipped.
 
 ## Etimad — Saudi Arabia (`sources/etimad.py`)
 
@@ -84,6 +140,9 @@ you learn something new about a portal (a changed label, a new quirk).
   `input#tendDesc{n}` holds a longer description, used as `brief`.
 - Dates cell: `Sales EndDate:29-11-2026-Bid Closing Date:09-12-2026`
   (`DD-MM-YYYY`). Fee and bond are `N/A` when empty.
+- The bond column header is `الضمان البنكي (%/value)`: the cell holds a bare
+  number that is either a percent of the bid (1, 2, 5) or an OMR amount
+  (200, 10000). The source stores numbers up to 10 as `"1%"`.
 - No published date in the list.
 - **Detail page** (`/nitParameterView?mode=public&tenderNo=...`) needs a URL
   signed by `getFinalURL()` (`encparam`/`hashval`). A plain GET returns
@@ -113,16 +172,60 @@ you learn something new about a portal (a changed label, a new quirk).
 - Currency: OMR. A full run is about 41 requests (about 3 minutes at a
   1-second delay).
 
+## Kuwait CAPT — Kuwait (`sources/kuwait_capt.py`)
+
+- Owner: Central Agency for Public Tenders (CAPT). Base: `https://capt.gov.kw`
+  (`www.` serves the same site). The root redirects to `/ar/`.
+- `robots.txt` is empty (HTTP 200, 0 bytes): allows all. The open list is
+  public, no login. Only the tender documents (كراسة الشروط) and "buy tender"
+  need a supplier login; the source does not touch them.
+- No TLS problems with the default `PoliteClient`.
+- Read as server-rendered HTML (Django, `django-el-pagination`).
+- **List:** "مناقصات مطروحة" = `GET /ar/tenders/opening-tenders/?page={page}`,
+  10 tenders a page, about 5 pages (50 tenders on 2026-11-23). An English
+  copy exists at `/en/...` with the same Arabic data.
+- **Paging trap:** past the last page the portal serves page 1 again, so
+  paging stops when a page brings no unseen key.
+- **Row:** each tender is a visible `.content-box` summary (number, request
+  date, buyer, subject) followed by a hidden `.content-box.tender-info` panel
+  with all fields. The source reads only the panel: `.detail-list ul`, each
+  `ul` = `li` label + `li` value. Labels: `الرقم`, `الجهة`, `الموضوع`,
+  `تاريخ الطلب` (published), `اخر موعد للعطاء` (closing, no hamza on اخر),
+  `النوع` (always `عامة` so far), `العروض البديلة`, `التجزئة`, `ملاحظات`
+  (brief), `السعر` (doc fee), `التأمين` (bond).
+- **No numeric id.** The tender number repeats across buyers (`1/2026/2027`),
+  so `source_id` is `ministry_code:tender_no`. The ministry code is in the
+  "buy" button `data-ministry-code`, and also at the end of the
+  `data-popup-url` (`...--30`).
+- **Per-tender link:** the list filters by
+  `?ministry_code=30&tender_no=2/2026/2027` (URL-encoded) and then shows only
+  that tender. `lead.url` uses this.
+- Tender numbers that start with `ممارسة` are "practices" (a smaller,
+  limited procurement); the source sets `tender_type` to `ممارسة` for them.
+- **Dates** are Arabic month names: `نوفمبر 22, 2026` (Month D, YYYY).
+- **Amounts:** `1000.000 د.ك`, `15,000.000 د.ك` (KWD, 3 decimals). The source
+  keeps `1,000` / `15,000`.
+- No category or activity on the list, so scoring uses title and notes only.
+  No detail pages are fetched. A full run is about 6 requests.
+- Other public lists, not collected yet: `pre-tenders` (الطرح المسبق),
+  `closing-tenders` (فض العطاءات, bid opening), `winning-bids` (الترسيات),
+  `postponement` (تأجيل المناقصات), `qualifications`, `warranties`.
+
 ## Candidate portals (not built yet)
 
 Check each one with the steps in SKILL.md before you plan work. These notes
 are starting points, not verified facts.
 
-- **Kuwait CAPT** (Central Agency for Public Tenders, `capt.gov.kw`):
-  publishes tenders and the official gazette.
 - **Bahrain Tender Board** (`tenderboard.gov.bh`): public list of tenders.
-- **Qatar entities with their own portals**: QatarEnergy, Kahramaa, Ashghal,
-  Hamad Medical Corporation. Some need a supplier registration, so check for
-  a login first.
+- **QatarEnergy LNG**: public GEP SMART bid list at
+  `eu.smart.gep.com/publicrfx/qatargas?oloc=215` (15 active, 433 closed on
+  2026-11-23). The list shows only reference, contact and dates, no titles.
+  Data comes from `POST /GetPublicRfxManageData?dd=<page token>`; the body
+  was not found. Needs a headless browser or more DevTools work.
+- **Not possible (login / invitation only)**: QatarEnergy (Mushtaryat,
+  JAGGAER; robots.txt disallows `/esop`), Ooredoo, Qatar Airways, QF
+  supplier portal.
+- **Not needed (on Monaqasat)**: Kahramaa (JSON service, every row has a
+  Monaqasat number), Ashghal (HTML, all open tenders on Monaqasat), HMC.
 - **UAE**: federal (`mof.gov.ae` / Digital Procurement Platform) and
   per-emirate portals (Abu Dhabi, Dubai eSupply). Many need registration.

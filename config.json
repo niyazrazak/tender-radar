@@ -176,7 +176,18 @@
       "الخدمات الالكترونيه",
       "التحول الرقمي",
       "رقمنه",
-      "الرقمنه"
+      "الرقمنه",
+      "cybersecurity",
+      "cyber security",
+      "endpoint detection",
+      "managed it services",
+      "data analyst",
+      "data analysts",
+      "الامن السيبراني",
+      "امن المعلومات",
+      "امن تكنولوجيا المعلومات",
+      "محلل بيانات",
+      "محللي بيانات"
     ],
     "weak": [
       "system",
@@ -224,9 +235,13 @@
       "ذكيه",
       "حلول",
       "البوابه",
-      "الامن السيبراني",
       "البصمه",
-      "الزوار"
+      "الزوار",
+      "data center",
+      "data centre",
+      "مركز البيانات",
+      "social media",
+      "digital marketing"
     ],
     "exclude": [
       "medicine",
@@ -269,7 +284,11 @@
       "مطبوعات",
       "زي موحد",
       "ملابس"
-    ]
+    ],
+    "activity_codes": {
+      "strong": ["6201", "631201"],
+      "weak": ["6202", "6209", "6311", "465102", "474150"]
+    }
   },
   "sources": {
     "monaqasat": {
@@ -287,6 +306,14 @@
       "enabled": true,
       "max_pages": 45,
       "in_process_pages": 10
+    },
+    "mwani": {
+      "enabled": true,
+      "max_items": 50
+    },
+    "qfa": {
+      "enabled": true,
+      "max_pages": 5
     }
   },
   "schedule": {

@@ -27,6 +27,8 @@ OPENED_AT = re.compile(r"(\d{2}-\d{2}-\d{4}) (\d{2}:\d{2})")
 
 # Cell order in each row of the tender table.
 REF, TITLE, BUYER, CATEGORY, TYPE, DATES, FEE, BOND = range(1, 9)
+# Percent bonds on the portal are 1, 2 or 5; OMR bonds are in the hundreds or more.
+MAX_BOND_PERCENT = 10
 
 
 class OmanTenderBoardSource:
@@ -83,7 +85,7 @@ class OmanTenderBoardSource:
             tender_type=_text(cells[TYPE]),
             closing=_date_after(dates, "Bid Closing Date"),
             doc_fee=_amount(cells[FEE]),
-            bond=_amount(cells[BOND]),
+            bond=_bond(cells[BOND]),
             currency="OMR",
             brief=_clean(description["value"]) if description else "",
         )
@@ -108,6 +110,15 @@ def _tip_or_text(cell) -> str:
 def _amount(cell) -> str:
     text = _text(cell)
     return "" if text == "N/A" else text
+
+
+def _bond(cell) -> str:
+    """The bond column is "(%/value)": small numbers are a percent of the bid, larger ones are OMR."""
+    text = _amount(cell)
+    try:
+        return f"{text}%" if 0 < float(text) <= MAX_BOND_PERCENT else text
+    except ValueError:
+        return text
 
 
 def _date_after(text: str, label: str) -> str:

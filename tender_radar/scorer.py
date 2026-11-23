@@ -9,26 +9,40 @@ EXCLUDE_PENALTY = 5
 ARABIC_FOLDS = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ة": "ه", "ى": "ي", "ـ": ""})
 ARABIC_MARKS = re.compile(r"[ً-ْٰ]")
 LATIN = re.compile(r"[a-z]")
+ACTIVITY_CODE = re.compile(r"\b\d{4,6}\b")
 
 
 class KeywordScorer:
-    """Scores a lead by keyword hits. Arabic is folded so spelling variants still match."""
+    """Scores a lead by keyword hits and activity codes. Arabic is folded so spelling variants still match."""
 
     def __init__(self, keywords: dict):
         self.rules = []
         for group, weight in (("strong", STRONG_WEIGHT), ("weak", WEAK_WEIGHT), ("exclude", -EXCLUDE_PENALTY)):
             for word in keywords.get(group, []):
                 self.rules.append((word, weight, self._pattern(word)))
+        codes = keywords.get("activity_codes", {})
+        self.code_rules = [(prefix, weight) for group, weight in (("strong", STRONG_WEIGHT), ("weak", WEAK_WEIGHT))
+                           for prefix in codes.get(group, [])]
 
     def score(self, lead: Lead) -> Lead:
         text = normalize(lead.searchable_text())
         hits = _drop_nested([(word, weight) for word, weight, pattern in self.rules if pattern.search(text)])
+        hits += self._code_hits(lead.activities)
         lead.score = sum(weight for _, weight in hits)
         lead.matched = ", ".join(word for word, weight in hits if weight > 0)
         excluded = [word for word, weight in hits if weight < 0]
         if excluded:
             lead.matched += f" | excluded: {', '.join(excluded)}"
         return lead
+
+    def _code_hits(self, activities: str) -> list:
+        """Monaqasat activities start with an ISIC-style code ("620102 تصميم وبرمجة ...").
+
+        Each listed prefix counts once, however many sub-codes a tender has.
+        """
+        codes = ACTIVITY_CODE.findall(activities or "")
+        return [(f"activity {prefix}", weight) for prefix, weight in self.code_rules
+                if any(code.startswith(prefix) for code in codes)]
 
     def _pattern(self, word: str) -> re.Pattern:
         folded = re.escape(normalize(word))

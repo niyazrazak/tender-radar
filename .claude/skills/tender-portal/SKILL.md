@@ -1,6 +1,6 @@
 ---
 name: tender-portal
-description: Add, fix or maintain a tender/RFQ portal scraper in the tender-radar project (Monaqasat Qatar, Etimad Saudi, and new GCC portals such as Oman Tender Board, Kuwait CAPT, Bahrain Tender Board, UAE, QatarEnergy, Kahramaa, Ashghal). Use this skill whenever the user wants to scrape a new procurement portal, says a portal "returns 0 tenders", "broke", "fails with SSL error", wants more fields (brief, closing date, fee, bond, buyer) from a portal, wants to change paging or filters, or asks how a source in tender_radar/sources works, even if they do not say "skill" or "scraper".
+description: Add, fix or maintain a tender/RFQ portal scraper in the tender-radar project (Monaqasat, Mwani and QFA in Qatar, Etimad Saudi, Oman Tender Board, and new GCC portals such as Kuwait CAPT, Bahrain Tender Board, UAE, QatarEnergy LNG). Use this skill whenever the user wants to scrape a new procurement portal, says a portal "returns 0 tenders", "broke", "fails with SSL error", wants more fields (brief, closing date, fee, bond, buyer) from a portal, wants to change paging or filters, or asks how a source in tender_radar/sources works, even if they do not say "skill" or "scraper".
 ---
 
 # Tender portal sources

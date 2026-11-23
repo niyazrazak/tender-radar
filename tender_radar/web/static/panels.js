@@ -80,7 +80,7 @@ function facts(lead) {
     ["Published", lead.published ? fmtDate(lead.published) : ""],
     ["Closing", lead.closing ? `${fmtDate(lead.closing)}${left !== null && left >= 0 ? ` · ${left} days left` : ""}` : ""],
     ["Document fee", esc(fmtFee(lead)) || "Not listed"],
-    ["Bid bond", money(lead.bond)],
+    ["Bid bond", esc(fmtBond(lead)) || "Not listed"],
     ["Winner", `<span dir="auto">${esc((lead.extra?.winners || []).map((w) => w.company).join("; "))}</span>`],
     ["Award value", money(lead.extra?.award_value)],
     ["Bidders", lead.extra?.bidders ? esc(lead.extra.bidders) : ""],

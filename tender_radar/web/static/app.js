@@ -21,6 +21,7 @@ const SOURCE_LABELS = {
   monaqasat: "Monaqasat", mwani: "Mwani Qatar", qfa: "Qatar Football Association", etimad: "Etimad",
   sidra: "Sidra Medicine", woqod: "WOQOD", qafco: "QAFCO",
   oman_tender_board: "Oman Tender Board", kuwait_capt: "Kuwait CAPT", bahrain_tender_board: "Bahrain Tender Board",
+  gulf_times: "Gulf Times adverts", oryx_gtl: "ORYX GTL", upwork: "Upwork",
 };
 const TWEAKS = {
   density: { label: "Density", options: [["relaxed", "Relaxed"], ["compact", "Compact"]] },
@@ -51,7 +52,7 @@ class Dashboard {
   constructor() {
     this.leads = [];
     this.filters = {
-      tab: "active", q: "", country: "", status: "", fee: "", bond: "", size: "", sort: "match", quick: "", scopeAll: false,
+      tab: "active", q: "", country: "", source: "", status: "", fee: "", bond: "", size: "", sort: "match", quick: "", scopeAll: false,
     };
     this.shown = PAGE_SIZE;
     this.selected = -1;
@@ -95,6 +96,7 @@ class Dashboard {
       toast(`Could not load leads: ${error.message}`);
     }
     this.fillCountries();
+    this.fillSources();
     this.fillStatuses();
     this.render();
   }
@@ -143,8 +145,8 @@ class Dashboard {
 
   render() {
     const today = todayISO();
-    const base = this.leads.filter((lead) => this.matchesSearch(lead) && this.matchesCountry(lead) && this.matchesStatus(lead)
-      && this.matchesFee(lead) && this.matchesBond(lead) && this.matchesSize(lead));
+    const base = this.leads.filter((lead) => this.matchesSearch(lead) && this.matchesCountry(lead) && this.matchesSource(lead)
+      && this.matchesStatus(lead) && this.matchesFee(lead) && this.matchesBond(lead) && this.matchesSize(lead));
     renderSummary(base, today, this.filters.quick);
     renderTabs(base, this.filters.tab);
     this.visible = sortLeads(base.filter((l) => this.matchesTab(l) && this.matchesQuick(l, today)), this.filters.sort);
@@ -152,7 +154,7 @@ class Dashboard {
     renderList(this.visible.slice(0, this.shown), this.selected, this.prefs.lang, today);
     renderQuick(this.filters.quick, this.visible.length);
     const f = this.filters;
-    $("clearFilters").hidden = !(f.country || f.status || f.fee || f.bond || f.size || f.q || f.quick);
+    $("clearFilters").hidden = !(f.country || f.source || f.status || f.fee || f.bond || f.size || f.q || f.quick);
     renderEmpty(this.visible.length === 0, this.leads.length === 0);
     const rest = this.visible.length - this.shown;
     $("more").hidden = rest <= 0;
@@ -169,6 +171,10 @@ class Dashboard {
 
   matchesCountry(lead) {
     return !this.filters.country || lead.country === this.filters.country;
+  }
+
+  matchesSource(lead) {
+    return !this.filters.source || lead.source === this.filters.source;
   }
 
   matchesStatus(lead) {
@@ -222,6 +228,17 @@ class Dashboard {
       countries.map((c) => `<option ${c === this.filters.country ? "selected" : ""}>${esc(c)}</option>`).join("");
   }
 
+  /** Sources present in the data, with counts, by name. */
+  fillSources() {
+    const counts = {};
+    for (const lead of this.leads) counts[lead.source] = (counts[lead.source] || 0) + 1;
+    const label = (s) => SOURCE_LABELS[s] || s;
+    const sources = Object.keys(counts).sort((a, b) => label(a).localeCompare(label(b)));
+    $("source").innerHTML = `<option value="">All sources</option>` + sources.map((s) =>
+      `<option value="${esc(s)}" ${s === this.filters.source ? "selected" : ""}>${esc(label(s))} (${counts[s]})</option>`
+    ).join("");
+  }
+
   /** Statuses present in the data, with counts, in the order a tender moves through them. */
   fillStatuses() {
     const counts = {};
@@ -238,6 +255,7 @@ class Dashboard {
     const refilter = () => { this.shown = PAGE_SIZE; this.selected = -1; this.render(); };
     $("q").addEventListener("input", (e) => { this.filters.q = e.target.value; refilter(); });
     $("country").addEventListener("change", (e) => { this.filters.country = e.target.value; refilter(); });
+    $("source").addEventListener("change", (e) => { this.filters.source = e.target.value; refilter(); });
     $("status").addEventListener("change", (e) => { this.filters.status = e.target.value; refilter(); });
     $("fee").addEventListener("change", (e) => { this.filters.fee = e.target.value; refilter(); });
     $("bond").addEventListener("change", (e) => { this.filters.bond = e.target.value; refilter(); });
@@ -258,8 +276,8 @@ class Dashboard {
     });
     $("quick").addEventListener("click", (e) => { if (e.target.closest("button")) { this.filters.quick = ""; refilter(); } });
     $("clearFilters").addEventListener("click", () => {
-      Object.assign(this.filters, { country: "", status: "", fee: "", bond: "", size: "", q: "", quick: "" });
-      for (const id of ["country", "status", "fee", "bond", "size", "q"]) $(id).value = "";
+      Object.assign(this.filters, { country: "", source: "", status: "", fee: "", bond: "", size: "", q: "", quick: "" });
+      for (const id of ["country", "source", "status", "fee", "bond", "size", "q"]) $(id).value = "";
       refilter();
     });
     $("list").addEventListener("click", (e) => {

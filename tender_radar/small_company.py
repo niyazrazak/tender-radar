@@ -15,6 +15,7 @@ import re
 # Same rates as the dashboard (app.js USD_PER).
 USD_PER = {"QAR": 1 / 3.64, "SAR": 1 / 3.75, "OMR": 1 / 0.3845, "AED": 1 / 3.6725, "KWD": 3.25, "BHD": 1 / 0.376}
 
+FREELANCER_OPEN = re.compile(r"صاحب عمل حر|freelanc", re.I)  # Oman's tender type for licensed freelancers
 SME_RESERVED = re.compile(r"صغيرة\s*و\s*ال?متوسطة|\bSMEs?\b|small and medium", re.I)
 SMALL_VALUE = [
     (re.compile(r"اقل من ([\d.,]+)"), "Under QAR {0}"),
@@ -34,7 +35,10 @@ def assess(lead: dict, max_upfront_usd: float = DEFAULT_MAX_UPFRONT_USD) -> dict
     small_value = _small_value(kind)
     affordable = sme_reserved or bool(small_value) or (upfront is not None and upfront <= max_upfront_usd)
     fits = affordable and lead.get("status", "open") in BIDDABLE  # awarded or opened: too late to bid
-    return {"sme_reserved": sme_reserved, "small_value": small_value, "upfront_usd": upfront, "fits": fits}
+    return {
+        "sme_reserved": sme_reserved, "small_value": small_value, "upfront_usd": upfront, "fits": fits,
+        "freelancer_open": bool(FREELANCER_OPEN.search(kind)),
+    }
 
 
 def upfront_usd(lead: dict) -> float | None:

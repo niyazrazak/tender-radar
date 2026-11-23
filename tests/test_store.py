@@ -76,3 +76,20 @@ def test_old_database_gets_new_columns(tmp_path):
     LeadStore(path)
     columns = {row[1] for row in sqlite3.connect(path).execute("PRAGMA table_info(leads)")}
     assert {"ai_fit", "ai_reason", "ai_analysis", "notes", "owner", "bid_due"} <= columns
+
+
+def test_recent_awards_uses_the_award_date_and_needs_a_winner(store):
+    winner = {"winners": [{"company": "Alpha", "cr": "123", "value": "10.00"}]}
+    store.save([
+        make_lead("new", status="awarded", score=5, published=iso(-3), extra=winner),
+        make_lead("old", status="awarded", score=5, published=iso(-90), extra=winner),
+        make_lead("nowinner", status="awarded", score=5, published=iso(-3)),
+        make_lead("offtopic", status="awarded", score=0, published=iso(-3), extra=winner),
+    ])
+    assert [lead["key"] for lead in store.recent_awards(30, 3)] == ["test:new"]
+
+
+def test_pitch_is_stored_as_json(store):
+    store.save([make_lead("1")])
+    store.set_pitch("test:1", {"subject": "Hi", "message": "Hello"})
+    assert store.get("test:1")["pitch"]["subject"] == "Hi"

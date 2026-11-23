@@ -95,3 +95,14 @@ def test_off_without_a_key(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
     assert not LeadAnalyst.available({"ai": {"enabled": True}})
+
+
+def test_pitch_names_the_winner_and_uses_the_profile(api):
+    api.reply({
+        "subject": "Mobile app for your new contract", "message": "Congratulations...", "work_to_offer": ["App"],
+    })
+    award = lead("a", "Smart portal") | {"extra": {"winners": [{"company": "Alpha Co"}], "award_value": "5,000.00"}}
+    pitch = LeadAnalyst({"ai": {}}).pitch(award, "Flutter developer, 6 years")
+    assert pitch["subject"] == "Mobile app for your new contract"
+    body = api.requests[0]["body"]
+    assert "Flutter developer" in body["system"] and "Winner: Alpha Co" in body["messages"][0]["content"]

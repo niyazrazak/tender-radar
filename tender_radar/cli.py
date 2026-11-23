@@ -62,7 +62,12 @@ class TenderRadar:
         new_count = self.store.save(leads)
         print(f"Saved {len(leads)} tenders, {new_count} new.", flush=True)
         new_keys = {lead.key for lead in leads if lead.key not in known}
-        return {"new_keys": new_keys, "total": len(leads), "new": new_count, "sources": sources}
+        # Awarded for the first time in this run: new to us, or stored before while still open.
+        new_awards = {lead.key for lead in leads if lead.status == "awarded" and known.get(lead.key) != "awarded"}
+        return {
+            "new_keys": new_keys, "new_award_keys": new_awards, "total": len(leads), "new": new_count,
+            "sources": sources,
+        }
 
     def report(self, min_score: int, days: int, new_keys: set) -> list[dict]:
         since = ""
@@ -103,6 +108,26 @@ class TenderRadar:
         analysis = self.analyst.analyze(lead, documents)
         self.store.set_ai_analysis(key, analysis)
         return analysis
+
+    def pitch(self, key: str) -> dict:
+        """A first message to the winner of an awarded lead, stored with the lead."""
+        if not self.analyst:
+            raise ValueError("AI is off. Set ANTHROPIC_API_KEY and restart the service.")
+        lead = self.store.get(key)
+        if not lead or not (lead.get("extra") or {}).get("winners"):
+            raise ValueError("This lead has no winner to pitch.")
+        self._add_english([lead])
+        pitch = self.analyst.pitch(lead, self.config.get("freelancer", {}).get("profile", ""))
+        self.store.set_pitch(key, pitch)
+        return pitch
+
+    def new_awards(self, keys: set) -> list[dict]:
+        """Leads in `keys` that are awarded in your field with a known winner."""
+        awards = self.store.recent_awards(3650, self.config.get("min_score", 3), self.min_fit)
+        relevant = {lead["key"] for lead in awards}
+        leads = [self.store.get(key) for key in keys if key in relevant]
+        self._add_english(leads)
+        return leads
 
     def backfill_awards(self, limit: int) -> int:
         """Reads award reports for stored Monaqasat tenders that were already awarded when first seen."""

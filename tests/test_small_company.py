@@ -37,3 +37,8 @@ def test_public_tender_with_a_large_bond_does_not_fit():
 
 def test_awarded_tender_does_not_fit():
     assert not assess(lead(tender_type="RFQ", status="awarded"))["fits"]
+
+
+def test_oman_freelancer_tender_type():
+    assert assess(lead(tender_type="صاحب عمل حر [ Local]", currency="OMR"))["freelancer_open"]
+    assert not assess(lead(tender_type="مناقصة عامة"))["freelancer_open"]

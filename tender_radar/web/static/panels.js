@@ -42,6 +42,7 @@ const drawer = {
       </div>
       ${fitBlock(lead)}
       ${analysisBlock(lead, this.analyzing)}
+      ${pitchBlock(lead, this.pitching)}
       ${teamBlock(lead)}
       <dl class="facts">${facts(lead)}</dl>
       ${bidsBlock(lead)}
@@ -70,10 +71,35 @@ const drawer = {
       if (e.target.closest("[data-lang]")) { this.showOriginal = !this.showOriginal; this.refresh(); }
       if (e.target.closest("[data-analyze]")) this.analyze([]);
       if (e.target.closest("[data-save-team]")) this.saveTeam(app);
+      if (e.target.closest("[data-pitch]")) this.draftPitch();
+      if (e.target.closest("[data-copy-pitch]")) this.copyPitch();
     });
     $("drawerBody").addEventListener("change", (e) => {
       if (e.target.matches("[data-upload]") && e.target.files.length) this.analyze([...e.target.files]);
     });
+  },
+
+  /** Asks Claude for a first message to the winner, offering the freelancer's services. */
+  async draftPitch() {
+    const lead = this.lead;
+    this.pitching = true;
+    this.refresh();
+    try {
+      const result = await api.post("/api/pitch", { key: lead.key });
+      if (!result.ok) throw new Error(result.data.error);
+      lead.pitch = result.data.pitch;
+    } catch (error) {
+      toast(`Pitch failed: ${error.message}`);
+    } finally {
+      this.pitching = false;
+      if (this.lead === lead) this.refresh();
+    }
+  },
+
+  async copyPitch() {
+    const pitch = this.lead.pitch;
+    await navigator.clipboard.writeText(`${pitch.subject}\n\n${pitch.message}`);
+    toast("Pitch copied");
   },
 
   async saveTeam(app) {
@@ -134,6 +160,28 @@ function analysisBlock(lead, busy) {
       ${list("Risks", a.risks)}${list("Questions for the buyer", a.questions)}
       <div class="cap">${a.documents_read && a.documents?.length ? `Read ${a.documents.map(esc).join(", ")}` : "From the portal details only. Upload the tender documents for a full analysis."}</div>
       ${controls}</div>`;
+}
+
+function pitchBlock(lead, busy) {
+  const winners = lead.extra?.winners || [];
+  if (lead.status !== "awarded" || !winners.length) return "";
+  const off = !app.aiEnabled;
+  const who = winners.map((w) => `<div><b dir="auto">${esc(w.company)}</b>${w.cr ? ` <span class="cap">CR ${esc(w.cr)}</span>` : ""}
+      ${w.value ? ` <span class="cap">· ${esc(w.value)} ${esc(lead.currency)}</span>` : ""}</div>`).join("");
+  const p = lead.pitch;
+  const draft = p ? `<div class="pitch"><div class="cap">Subject</div><p>${esc(p.subject)}</p>
+      <div class="cap">Message</div><p>${esc(p.message)}</p>
+      ${p.work_to_offer?.length ? `<div class="cap">Work you could offer</div><ul>${p.work_to_offer.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
+      <button class="btn ghost" data-copy-pitch>Copy</button></div>` : "";
+  return `<div class="block analysis"><h4>Pitch the winner</h4>
+      <p class="cap">The winner may need help to deliver. Offer to take on part of the work as a subcontractor.
+        Look the company up by its commercial registration (CR) number to find a contact.</p>
+      ${who}${draft}
+      <div class="analyze-controls">
+        <button class="btn ${p ? "ghost" : "primary"}" data-pitch ${busy || off ? "disabled" : ""}>${p ? "Draft again" : "Draft a pitch"}</button>
+        ${busy ? '<span class="busy">Claude is writing…</span>' : ""}
+        ${off ? '<span class="busy">Set ANTHROPIC_API_KEY in .env and restart the service to draft pitches.</span>' : ""}
+      </div></div>`;
 }
 
 function teamBlock(lead) {
@@ -258,7 +306,8 @@ function facts(lead) {
     ["Status", esc(lead.status)],
     ["Type", esc(lead.tender_type)],
     ["Category", `<span dir="auto">${esc(lead.category_en || lead.category)}</span>`],
-    ["Published", lead.published ? fmtDate(lead.published) : ""],
+    // For awarded tenders the portal's date is the award date.
+    [lead.status === "awarded" ? "Awarded" : "Published", lead.published ? fmtDate(lead.published) : ""],
     ["Closing", lead.closing ? `${fmtDate(lead.closing)}${left !== null && left >= 0 ? ` · ${left} days left` : ""}` : ""],
     ["Document fee", esc(fmtFee(lead)) || "Not listed"],
     ["Bid bond", esc(fmtBond(lead)) || "Not listed"],

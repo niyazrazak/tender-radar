@@ -65,7 +65,12 @@ class Dashboard {
       this.smallCompany = data.small_company || { enabled: false, max_upfront_usd: 2000 };
       // Small company mode in config.json starts the list on tenders a small company can afford, once.
       if (!this.sizeApplied && this.smallCompany.enabled) { this.filters.size = "small"; $("size").value = "small"; }
+      this.freelancer = data.freelancer || { enabled: false, award_days: 30 };
+      // Freelancer mode starts on fresh awards: the winners may need help to deliver.
+      if (!this.sizeApplied && this.freelancer.enabled) { this.filters.size = "awarded"; $("size").value = "awarded"; }
       this.sizeApplied = true;
+      $("size").querySelector('[value="awarded"]').textContent =
+        `Awarded in the last ${this.freelancer.award_days} days: pitch the winner`;
       $("size").querySelector('[value="cheap"]').textContent =
         `Up-front cost up to $${this.smallCompany.max_upfront_usd.toLocaleString("en-US")}`;
       this.loadFailed = false;
@@ -171,6 +176,8 @@ class Dashboard {
       sme: () => small.sme_reserved,
       smallvalue: () => Boolean(small.small_value),
       cheap: () => small.upfront_usd !== null && small.upfront_usd <= this.smallCompany.max_upfront_usd,
+      awarded: () => isFreshAward(lead, this.freelancer.award_days),
+      freelancer: () => small.freelancer_open && (lead.status === "open" || lead.status === "future"),
     };
     return !this.filters.size || tests[this.filters.size]();
   }
@@ -403,10 +410,16 @@ function fmtUSD(amount) {
   return `$${Math.round(amount).toLocaleString("en-US")}`;
 }
 
+/** Awarded within `days` days, with a winner to pitch. For awarded tenders `published` is the award date. */
+function isFreshAward(lead, days) {
+  return lead.status === "awarded" && (lead.extra?.winners || []).length > 0 && (lead.published || "") >= daysAgoISO(days);
+}
+
 function smallBadges(lead) {
   const small = lead.small || {};
   const badges = [];
   if (small.sme_reserved) badges.push('<span class="badge sme" title="Reserved for small and medium enterprises">SME only</span>');
+  if (small.freelancer_open) badges.push('<span class="badge sme" title="Open to licensed freelancers">Freelancers</span>');
   if (small.small_value) badges.push(`<span class="badge small" title="${esc(small.small_value)}">Small value</span>`);
   return badges.join("");
 }

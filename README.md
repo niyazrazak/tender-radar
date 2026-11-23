@@ -100,6 +100,21 @@ Set `small_company.enabled` to `true` in `config.json` to start the dashboard on
 
 The **Market** view lists **Partners to approach**: companies that win larger contracts in your field. A small company can offer to deliver the software part as their subcontractor, under their bond and registration.
 
+## Freelancer mode
+
+Most government tenders accept only registered companies. A freelancer gets work another way: from the companies that win.
+
+- **Awarded in the last N days: pitch the winner** (company size filter). Awards in your field with a known winner, newest first. The date is the portal's award date. A company that just won often needs help to deliver.
+- In an awarded lead's panel, **Pitch the winner** shows each winner, its commercial registration (CR) number (to look up a contact) and its awarded value. **Draft a pitch** asks Claude for a short first message that offers your services for that contract (needs the API key).
+- **Open to freelancers:** open tenders for licensed freelancers (Oman's tender type "صاحب عمل حر").
+
+Settings in `config.json` -> `freelancer`:
+- `profile`: your skills and experience, used in pitches (falls back to `company`).
+- `award_days`: how recent an award counts as new (default 30).
+- `enabled`: start the dashboard on fresh awards, and send an alert after each check that lists awards new to the tool in your field.
+
+Awards come from Monaqasat award reports. Winners stored before CR numbers were read show no CR.
+
 ## Team work
 
 - Each lead has **Owner**, **Our bid deadline** and **Notes** in its panel. Search finds them too.

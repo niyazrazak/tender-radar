@@ -141,7 +141,8 @@ def _parse_award_tables(soup) -> dict:
         rows = [[_clean(c.get_text(" ")) for c in tr.find_all(["th", "td"])] for tr in table.find_all("tr")]
         head, body = (rows[0], [r for r in rows[1:] if r and r[0]]) if rows else ([], [])
         if "القيمة الموافق عليها" in head:
-            award["winners"] = [{"company": r[0], "value": _amount(r[2])} for r in body if len(r) > 2]
+            # The commercial registration (CR) number identifies the company, e.g. to find its contacts.
+            award["winners"] = [{"company": r[0], "cr": r[1], "value": _amount(r[2])} for r in body if len(r) > 2]
             award["award_value"] = _total(w["value"] for w in award["winners"])
         elif head == ["اسم الشركة", "رقم السجل التجاري"]:
             award["bidders"] = len(body)

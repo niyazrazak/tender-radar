@@ -51,3 +51,8 @@ def test_monaqasat_reads_award_reports():
 def test_monaqasat_reads_details():
     opened = [lead for lead in collect("monaqasat") if lead.status == "open"]
     assert any(lead.activities for lead in opened) and any(lead.brief for lead in opened)
+
+
+def test_monaqasat_keeps_the_winner_registration_number():
+    winners = [w for lead in collect("monaqasat") for w in lead.extra.get("winners", [])]
+    assert winners and all(w["cr"] for w in winners)

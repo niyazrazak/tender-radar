@@ -68,12 +68,13 @@ class Scheduler:
         radar = TenderRadar(self.config_path)  # fresh each run, so config edits apply without a restart
         runs = RunLog(radar.store.db)
         run_id = runs.start(trigger)
-        result, error, new_leads = {}, "", []
+        result, error, new_leads, new_awards = {}, "", [], []
         try:
             result = radar.collect([])
             radar.screen()  # before the report, so the digest can use the AI fit
             leads = radar.report(radar.config.get("min_score", 3), 0, result["new_keys"])
             new_leads = [lead for lead in leads if lead["key"] in result["new_keys"]]
+            new_awards = radar.new_awards(result["new_award_keys"])
             radar.translate_all()
         except Exception as exc:
             traceback.print_exc()
@@ -83,6 +84,7 @@ class Scheduler:
         try:
             alerts.run_finished(new_leads, result, error)
             alerts.send_reminders(radar.store)  # also after a failed check: deadlines do not wait
+            alerts.awards_found(new_awards)
         except Exception:
             traceback.print_exc()
         with self._state:

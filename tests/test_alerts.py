@@ -74,3 +74,15 @@ def test_small_company_mode_keeps_only_affordable_leads():
     cheap = lead_dict("cheap") | {"tender_type": "RFQ", "doc_fee": "", "bond": "", "currency": "QAR"}
     costly = lead_dict("costly") | {"tender_type": "مناقصة عامة", "doc_fee": "800", "bond": "80,000", "currency": "QAR"}
     assert [lead["key"] for lead in sender.digest_leads([cheap, costly])] == ["cheap"]
+
+
+def test_new_awards_are_sent_only_in_freelancer_mode():
+    award = lead_dict("won") | {"extra": {"winners": [{"company": "Alpha"}], "award_value": "1,000.00"},
+                                "currency": "QAR", "buyer_en": "Ministry"}
+    sender = alerts()
+    assert not sender.awards_found([award])
+    sender.freelancer = True
+    assert sender.awards_found([award])
+    subject, text = sender.channels[0].sent[0]
+    assert subject == "1 new award in your field: pitch the winner"
+    assert "Won by Alpha · 1,000.00 QAR · Ministry" in text

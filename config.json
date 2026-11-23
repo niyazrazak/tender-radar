@@ -343,6 +343,11 @@
       "fetch_details": true
     }
   },
+  "freelancer": {
+    "enabled": false,
+    "profile": "",
+    "award_days": 30
+  },
   "small_company": {
     "enabled": false,
     "max_upfront_usd": 2000

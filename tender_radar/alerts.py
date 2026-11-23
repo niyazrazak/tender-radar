@@ -83,6 +83,7 @@ class Alerts:
         small = config.get("small_company", {})
         self.small_company = bool(small.get("enabled"))
         self.max_upfront = small.get("max_upfront_usd", DEFAULT_MAX_UPFRONT_USD)
+        self.freelancer = bool(config.get("freelancer", {}).get("enabled"))
         self.dashboard = settings.get("dashboard_url", "")
 
     def run_finished(self, new_leads: list[dict], result: dict, error: str = ""):
@@ -97,6 +98,23 @@ class Alerts:
         if leads:
             count = len(leads)
             self._send(f"{count} new tender lead{'s' if count != 1 else ''}", *self._digest(leads))
+
+    def awards_found(self, leads: list[dict]) -> bool:
+        """Freelancer mode: new awards in your field, so you can pitch the winner while they staff up."""
+        if not self.freelancer or not leads:
+            return False
+        count = len(leads)
+        subject = f"{count} new award{'s' if count != 1 else ''} in your field: pitch the winner"
+        rows = []
+        for lead in leads[:DIGEST_LIMIT]:
+            extra = lead.get("extra") or {}
+            winners = ", ".join(w["company"] for w in extra.get("winners", []))
+            value = f"{extra.get('award_value', '')} {lead.get('currency', '')}".strip()
+            buyer = lead.get("buyer_en") or lead.get("buyer", "")
+            link = extra.get("award_report") or lead["url"]
+            rows.append(f"• {_title(lead)}\n  Won by {winners} · {value} · {buyer}\n  {link}")
+        text = "\n\n".join(rows)
+        return self._send(subject, text)
 
     def send_reminders(self, store) -> int:
         """One message for every shortlisted or bidding lead whose deadline is near. Returns the count."""

@@ -89,7 +89,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             return
         routes = {
             "/api/run": self._run, "/api/lead-status": self._lead_status, "/api/lead-update": self._lead_update,
-            "/api/analyze": self._analyze,
+            "/api/analyze": self._analyze, "/api/pitch": self._pitch,
         }
         path = urlparse(self.path).path
         # A JSON content type forces a CORS preflight, which we never answer, so other sites cannot post here.
@@ -131,6 +131,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
             lead["small"] = assess(lead, max_upfront)
         self._json({
             "small_company": {"enabled": bool(small.get("enabled")), "max_upfront_usd": max_upfront},
+            "freelancer": {
+                "enabled": bool(config.get("freelancer", {}).get("enabled")),
+                "award_days": config.get("freelancer", {}).get("award_days", 30),
+            },
             "leads": leads,
             "min_score": config.get("min_score", 3),
             "focus_countries": config.get("focus_countries", []),
@@ -178,6 +182,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         documents = sorted((path.name, path.read_bytes()) for path in folder.glob("*")) if folder.is_dir() else []
         analysis = TenderRadar(self.config_path).analyze(key, documents)
         self._json({"analysis": analysis})
+
+    def _pitch(self, body: dict):
+        pitch = TenderRadar(self.config_path).pitch(str(body.get("key", "")))
+        self._json({"pitch": pitch})
 
     def _run(self, _body: dict):
         started = self.scheduler.request_run()

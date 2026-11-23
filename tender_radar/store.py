@@ -25,6 +25,7 @@ LATER_COLUMNS = {
     "notes": "TEXT NOT NULL DEFAULT ''",
     "owner": "TEXT NOT NULL DEFAULT ''",
     "bid_due": "TEXT NOT NULL DEFAULT ''",
+    "pitch": "TEXT NOT NULL DEFAULT ''",
 }
 TEAM_FIELDS = ("notes", "owner", "bid_due")
 
@@ -168,6 +169,24 @@ class LeadStore:
         self.db.execute("UPDATE leads SET ai_analysis = ? WHERE key = ?", (text, key))
         self.db.commit()
 
+    def recent_awards(self, days: int, min_score: int, min_fit: int | None = None) -> list[dict]:
+        """Awarded tenders in your field with a known winner, awarded in the last `days` days, newest first.
+
+        For awarded tenders `published` holds the award date (Monaqasat's "تاريخ الترسية").
+        """
+        sql = """SELECT * FROM leads WHERE status = 'awarded' AND extra LIKE '%"winners"%'
+                 AND published >= date('now', ?) AND (CAST(score AS INTEGER) >= ?"""
+        args = [f"-{int(days)} day", min_score]
+        if min_fit is not None:
+            sql += " OR ai_fit >= ?"
+            args.append(min_fit)
+        sql += ") ORDER BY published DESC"
+        return [self._row_to_dict(row) for row in self.db.execute(sql, args)]
+
+    def set_pitch(self, key: str, pitch: dict):
+        self.db.execute("UPDATE leads SET pitch = ? WHERE key = ?", (json.dumps(pitch, ensure_ascii=False), key))
+        self.db.commit()
+
     def awarded_without_report(self, source: str, limit: int) -> list[dict]:
         rows = self.db.execute(
             """SELECT * FROM leads WHERE source = ? AND status = 'awarded' AND extra NOT LIKE '%award_report%'
@@ -226,6 +245,7 @@ class LeadStore:
         data["extra"] = json.loads(data["extra"] or "{}")
         data["score"] = int(data["score"] or 0)
         data["ai_analysis"] = json.loads(data["ai_analysis"]) if data.get("ai_analysis") else None
+        data["pitch"] = json.loads(data["pitch"]) if data.get("pitch") else None
         return data
 
 

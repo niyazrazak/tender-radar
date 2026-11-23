@@ -14,6 +14,8 @@ const TAB_ICONS = {
   bidding: '<path d="M5 3.5h7l3 3v10H5zM8 10h4M8 13h4" stroke-linejoin="round" stroke-linecap="round"/>',
   dismissed: '<path d="M4 6h12M8 6V4h4v2M6 6l.7 10h6.6L14 6" stroke-linejoin="round" stroke-linecap="round"/>',
 };
+// Portal status of a tender. "opened" is Oman: bids opened, not yet awarded.
+const STATUS_LABELS = { open: "Open", future: "Upcoming", opened: "Bids opened", awarded: "Awarded" };
 const STATE_LABELS = { new: "", shortlisted: "Shortlisted", bidding: "Bidding", dismissed: "Dismissed" };
 const SOURCE_LABELS = {
   monaqasat: "Monaqasat", mwani: "Mwani Qatar", qfa: "Qatar Football Association", etimad: "Etimad",
@@ -49,7 +51,7 @@ class Dashboard {
   constructor() {
     this.leads = [];
     this.filters = {
-      tab: "active", q: "", country: "", fee: "", bond: "", size: "", sort: "match", quick: "", scopeAll: false,
+      tab: "active", q: "", country: "", status: "", fee: "", bond: "", size: "", sort: "match", quick: "", scopeAll: false,
     };
     this.shown = PAGE_SIZE;
     this.selected = -1;
@@ -93,6 +95,7 @@ class Dashboard {
       toast(`Could not load leads: ${error.message}`);
     }
     this.fillCountries();
+    this.fillStatuses();
     this.render();
   }
 
@@ -140,7 +143,7 @@ class Dashboard {
 
   render() {
     const today = todayISO();
-    const base = this.leads.filter((lead) => this.matchesSearch(lead) && this.matchesCountry(lead)
+    const base = this.leads.filter((lead) => this.matchesSearch(lead) && this.matchesCountry(lead) && this.matchesStatus(lead)
       && this.matchesFee(lead) && this.matchesBond(lead) && this.matchesSize(lead));
     renderSummary(base, today, this.filters.quick);
     renderTabs(base, this.filters.tab);
@@ -149,7 +152,7 @@ class Dashboard {
     renderList(this.visible.slice(0, this.shown), this.selected, this.prefs.lang, today);
     renderQuick(this.filters.quick, this.visible.length);
     const f = this.filters;
-    $("clearFilters").hidden = !(f.country || f.fee || f.bond || f.size || f.q || f.quick);
+    $("clearFilters").hidden = !(f.country || f.status || f.fee || f.bond || f.size || f.q || f.quick);
     renderEmpty(this.visible.length === 0, this.leads.length === 0);
     const rest = this.visible.length - this.shown;
     $("more").hidden = rest <= 0;
@@ -166,6 +169,10 @@ class Dashboard {
 
   matchesCountry(lead) {
     return !this.filters.country || lead.country === this.filters.country;
+  }
+
+  matchesStatus(lead) {
+    return !this.filters.status || lead.status === this.filters.status;
   }
 
   matchesFee(lead) {
@@ -215,12 +222,23 @@ class Dashboard {
       countries.map((c) => `<option ${c === this.filters.country ? "selected" : ""}>${esc(c)}</option>`).join("");
   }
 
+  /** Statuses present in the data, with counts, in the order a tender moves through them. */
+  fillStatuses() {
+    const counts = {};
+    for (const lead of this.leads) counts[lead.status] = (counts[lead.status] || 0) + 1;
+    const order = [...Object.keys(STATUS_LABELS), ...Object.keys(counts).filter((s) => !(s in STATUS_LABELS))];
+    $("status").innerHTML = `<option value="">Any status</option>` + order.filter((s) => counts[s]).map((s) =>
+      `<option value="${esc(s)}" ${s === this.filters.status ? "selected" : ""}>${esc(STATUS_LABELS[s] || s)} (${counts[s]})</option>`
+    ).join("");
+  }
+
   /* Controls */
 
   bindControls() {
     const refilter = () => { this.shown = PAGE_SIZE; this.selected = -1; this.render(); };
     $("q").addEventListener("input", (e) => { this.filters.q = e.target.value; refilter(); });
     $("country").addEventListener("change", (e) => { this.filters.country = e.target.value; refilter(); });
+    $("status").addEventListener("change", (e) => { this.filters.status = e.target.value; refilter(); });
     $("fee").addEventListener("change", (e) => { this.filters.fee = e.target.value; refilter(); });
     $("bond").addEventListener("change", (e) => { this.filters.bond = e.target.value; refilter(); });
     $("size").addEventListener("change", (e) => { this.filters.size = e.target.value; refilter(); });
@@ -240,8 +258,8 @@ class Dashboard {
     });
     $("quick").addEventListener("click", (e) => { if (e.target.closest("button")) { this.filters.quick = ""; refilter(); } });
     $("clearFilters").addEventListener("click", () => {
-      Object.assign(this.filters, { country: "", fee: "", bond: "", size: "", q: "", quick: "" });
-      for (const id of ["country", "fee", "bond", "size", "q"]) $(id).value = "";
+      Object.assign(this.filters, { country: "", status: "", fee: "", bond: "", size: "", q: "", quick: "" });
+      for (const id of ["country", "status", "fee", "bond", "size", "q"]) $(id).value = "";
       refilter();
     });
     $("list").addEventListener("click", (e) => {
@@ -332,7 +350,7 @@ function renderList(leads, selected, lang, today) {
   $("list").innerHTML = leads.map((lead, i) => {
     const title = lang === "orig" ? lead.title : lead.title_en || lead.title;
     const isNew = lead.first_seen >= daysAgoISO(1);
-    const status = lead.status !== "open" ? `<span class="badge state">${esc(lead.status)}</span>` : "";
+    const status = lead.status !== "open" ? `<span class="badge state">${esc(STATUS_LABELS[lead.status] || lead.status)}</span>` : "";
     return `<li class="row ${i === selected ? "sel" : ""}" data-i="${i}">
       <div class="lane-score">${matchBadge(lead)}</div>
       <div class="lane-main">
@@ -373,6 +391,10 @@ function moneyLines(lead) {
 
 /** Days left leads, because that is what decides whether to act today. */
 function deadline(lead, today) {
+  // For an awarded tender the portal's published date is the award date; its closing date no longer matters.
+  if (lead.status === "awarded") {
+    return `<div class="when past">Awarded</div><div class="d">${lead.published ? fmtDate(lead.published) : ""}</div>`;
+  }
   if (!lead.closing) return '<div class="when na">No closing date</div>';
   const days = daysLeft(lead.closing, today);
   const cls = days < 0 ? "past" : days <= 3 ? "urgent" : days <= 7 ? "soon" : "";
@@ -511,6 +533,7 @@ function fmtFee(lead) {
 /* Helpers */
 
 function isClosingSoon(lead, today) {
+  if (lead.status === "awarded") return false;
   const left = daysLeft(lead.closing, today);
   return left !== null && left >= 0 && left <= 7;
 }

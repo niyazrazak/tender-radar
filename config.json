@@ -47,6 +47,7 @@
       "recruitment system",
       "employee self service",
       "e-recruitment",
+      "it department",
       "اداره الزوار",
       "نظام الزوار",
       "تسجيل الزوار",
@@ -341,6 +342,10 @@
     "qafco": {
       "enabled": true,
       "max_age_days": 120
+    },
+    "oryx_gtl": {
+      "enabled": true,
+      "closed_items": 5
     },
     "kuwait_capt": {
       "enabled": false,

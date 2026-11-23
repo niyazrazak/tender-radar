@@ -24,6 +24,7 @@ RECORD_SETTINGS = {
     "sidra": {},
     "woqod": {"max_pages": 1},
     "qafco": {"max_age_days": 120},
+    "oryx_gtl": {"closed_items": 3},
     "gulf_times": {"days": 1, "sections": ["main"], "cache_dir": ""},
     "etimad": {"max_pages": 1, "publish_window": "week"},
     "oman_tender_board": {"max_pages": 1, "in_process_pages": 1},

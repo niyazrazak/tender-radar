@@ -162,6 +162,26 @@ you learn something new about a portal (a changed label, a new quirk).
 - About 1 RFQ in 20 is IT (e.g. "Implementation of SAP Ariba Spend Control
   Tower", 2026/03). QAFAC is checked and not built: see "Candidate portals".
 
+## ORYX GTL — Qatar (`sources/oryx_gtl.py`)
+
+- Not on Monaqasat. robots.txt blocks only `/wp-admin/` (checked with
+  `od -c`, 2026-11-23). The WordPress REST API answers 401, so read the HTML.
+- **Lists:** `/open-tenders/`, `/future-tenders/`, `/closed-tenders/`
+  (`/awarded-tenders/` is empty). Each is one page with `ul.tender-list li a`,
+  newest first. An empty list has `<p>We do not currently have any ...</p>`.
+  The closed page lists 336 tenders (2026-11), so only the newest
+  `closed_items` are read.
+- **Tender page:** `.tenders-info li` with `<span class="title">` labels:
+  `Tender No.` (`TC-CN-018-26-IT`, last part = department: IT, MC, EN),
+  `Tender Fee` / `Tender Bond` (`QAR 45,500.00`), `Bid Validity Period`,
+  `Bid Closing Date` and `Tender Documents Collection Closing Date`
+  (`July 29, 2026`). The rest of the page is the same registration text on
+  every tender (fee by bank deposit, register by email with CR and ICV), so it
+  is not used as the brief.
+- A tender moves to "Closed" when document collection closes, while bids are
+  still open, so `closing` is the collection date. 6 of the newest 17
+  closed tenders (2026) were IT: licences, SOC support, backup infrastructure.
+
 ## Etimad — Saudi Arabia (`sources/etimad.py`)
 
 - Owner: Ministry of Finance, Saudi Arabia. Base: `https://tenders.etimad.sa`.
@@ -366,7 +386,10 @@ are starting points, not verified facts.
   list at `eu.smart.gep.com/publicrfx/qatargas?oloc=215` (15 active, 433
   closed on 2026-11-23), but `eu.smart.gep.com/robots.txt` is
   `User-agent: * / Disallow: /` (checked 2026-11-23), so do not collect it,
-  with or without a headless browser. The list also has no titles, only
+  with or without a headless browser, and not through its JSON API
+  (`POST /GetPublicRfxManageData`) either. Read robots.txt with `od -c`:
+  it has no final newline, so `Disallow: /` is easy to misread as an empty
+  `Disallow:`. The list also has no titles, only
   reference, contact and dates. `qatarenergylng.qa` rejects `/robots.txt`
   with a 403 (F5 firewall). Its `/Suppliers/Recently-Awarded-Contracts` page
   lists past awards only. The way in is supplier registration

@@ -15,6 +15,7 @@ Collects public tender / RFQ leads from GCC government procurement portals, keep
 | Sidra Medicine | Qatar | RFQs, RFIs and tenders, not on Monaqasat |
 | WOQOD (woqod.com) | Qatar | Open tenders with fee and bond, not on Monaqasat |
 | QAFCO (qafco.qa) | Qatar | RFQs with fee, bond and dates from each RFQ's PDF, not on Monaqasat |
+| ORYX GTL (oryxgtl.qa) | Qatar | Open and future tenders, plus the newest closed ones, with number, fee, bond and dates. `closing` is the last day to register by email; the bid closing date is in the details |
 | Gulf Times newspaper (gulf-times.com/pdfs) | Qatar | Tender adverts printed in the daily paper (e.g. Qatar Foundation, QAPCO), read by Claude from the page images. Needs AI (Claude Code login or API key) |
 | Etimad (tenders.etimad.sa) | Saudi Arabia | Active tenders published in the last week |
 | Oman Tender Board (etendering.tenderboard.gov.om) | Oman | New tenders and tenders with bids opened |

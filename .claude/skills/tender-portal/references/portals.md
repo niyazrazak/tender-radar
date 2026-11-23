@@ -160,8 +160,7 @@ you learn something new about a portal (a changed label, a new quirk).
   the fee-receipt dates and last the closing date. Dates are `13.12.2026` or
   `31/08/2026`.
 - About 1 RFQ in 20 is IT (e.g. "Implementation of SAP Ariba Spend Control
-  Tower", 2026/03). QAFAC (`qafac.com.qa/tenders`) has a similar page but
-  showed "No valid tenders available"; not built.
+  Tower", 2026/03). QAFAC is checked and not built: see "Candidate portals".
 
 ## Etimad — Saudi Arabia (`sources/etimad.py`)
 
@@ -338,6 +337,15 @@ are starting points, not verified facts.
 - **Not possible (login / invitation only)**: QatarEnergy (Mushtaryat,
   JAGGAER; robots.txt disallows `/esop`), Ooredoo, Qatar Airways, QF
   supplier portal.
+- **QAFAC** (Qatar Fuel Additives, `https://www.qafac.com.qa/tenders/`):
+  checked 2026-11-23, not built because it is rarely used. Public WordPress
+  page, robots.txt allows all. Internet Archive snapshots: 404 in 2025-07,
+  4 tenders in 2025-08 (all industrial, none IT), then "No valid tenders
+  available" in 2025-09, 2025-12, 2026-01 and on 2026-11-23. The page says
+  tenders also go in local Arabic and English newspapers. Format when used
+  (2025-08): one `<table>` with "Tender Name" and a "Download PDF" link per
+  row; the PDF format is unknown. Build it only if the page lists tenders
+  again; the QAFCO source is a starting point.
 - **Not needed (on Monaqasat)**: Kahramaa (JSON service, every row has a
   Monaqasat number), Ashghal (HTML, all open tenders on Monaqasat), HMC.
 - **UAE**: federal (`mof.gov.ae` / Digital Procurement Platform) and

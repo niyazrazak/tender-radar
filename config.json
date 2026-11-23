@@ -355,6 +355,11 @@
       "enabled": false,
       "max_pages": 60,
       "fetch_details": true
+    },
+    "upwork": {
+      "enabled": true,
+      "client_countries": ["Qatar"],
+      "max_pages": 4
     }
   },
   "freelancer": {

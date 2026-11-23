@@ -21,8 +21,10 @@ Collects public tender / RFQ leads from GCC government procurement portals, keep
 | Oman Tender Board (etendering.tenderboard.gov.om) | Oman | New tenders and tenders with bids opened |
 | CAPT (capt.gov.kw) | Kuwait | Open tenders |
 | Tender Board (tenderboard.gov.bh) | Bahrain | Current tenders, with details (brief, fee, bond) |
+| Upwork (upwork.com) | Qatar (client location) | Freelance jobs posted by clients in Qatar, with skills, budget (USD) and experience level. **Not robots.txt-compliant** (see below) |
 
 All are public pages that need no login. The tool reads only what each portal's robots.txt allows, and waits 1 second between requests.
+Upwork is the one exception: its robots.txt disallows job search and Cloudflare blocks plain HTTP clients, so the source reads Upwork's own job search with a browser TLS fingerprint (`curl_cffi`). It needs no Upwork account. Upwork may block it at any time. Turn it off with `"enabled": false` under `sources.upwork` in `config.json`. `client_countries` takes Upwork's country names, for example `["Qatar", "United Arab Emirates"]`.
 Kahramaa, Ashghal, HMC and Qatar Foundation publish on Monaqasat. QatarEnergy, Ooredoo, Qatar Airways, Barwa and Msheireb Properties send tenders only to registered suppliers, so they are not collected: register on their supplier portals to receive them.
 
 ## Setup

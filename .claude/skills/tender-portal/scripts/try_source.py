@@ -31,8 +31,11 @@ def main():
     settings["fetch_details"] = args.details
     http = config.get("http", {})
     client = PoliteClient(http.get("delay_seconds", 1.0), http.get("timeout_seconds", 30))
+    source = SOURCES[args.name]
+    if hasattr(source, "own_client"):  # Upwork needs its own browser-like client, as in cli
+        client = source.own_client(client.delay)
 
-    leads = SOURCES[args.name](client, settings).collect({})
+    leads = source(client, settings).collect({})
     scorer = KeywordScorer(config["keywords"])
     for lead in leads:
         scorer.score(lead)

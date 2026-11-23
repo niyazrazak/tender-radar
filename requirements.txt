@@ -3,3 +3,4 @@ beautifulsoup4
 openpyxl
 pypdf
 anthropic>=2.12
+curl_cffi  # only the Upwork source

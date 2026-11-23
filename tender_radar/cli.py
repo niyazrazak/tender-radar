@@ -59,7 +59,9 @@ class TenderRadar:
                 source = SOURCES[name]
                 # A source that reads with Claude (newspaper adverts) gets the analyst; None when AI is off.
                 extra = {"analyst": self.analyst} if getattr(source, "needs_ai", False) else {}
-                found = source(self.client, settings, **extra).collect(known)
+                # Upwork needs its own browser-like client; every other source shares the polite one.
+                client = source.own_client(self.client.delay) if hasattr(source, "own_client") else self.client
+                found = source(client, settings, **extra).collect(known)
                 leads += found
                 sources[name] = {"ok": True, "count": len(found), "error": ""}
                 if not found and previous.get(name) and not getattr(source, "may_be_empty", False):

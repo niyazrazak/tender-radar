@@ -9,6 +9,7 @@ from tender_radar.sources.oryx_gtl import OryxGtlSource
 from tender_radar.sources.qafco import QafcoSource
 from tender_radar.sources.qfa import QfaSource
 from tender_radar.sources.sidra import SidraSource
+from tender_radar.sources.upwork import UpworkSource
 from tender_radar.sources.woqod import WoqodSource
 
 # Add new portals here (UAE, ...).
@@ -17,6 +18,7 @@ SOURCES = {
     for source in (
         MonaqasatSource, MwaniSource, QfaSource, SidraSource, WoqodSource, QafcoSource, GulfTimesSource,
         OryxGtlSource,  # Qatar
+        UpworkSource,  # freelance jobs from Qatari clients; not robots.txt-compliant
         EtimadSource, OmanTenderBoardSource, KuwaitCaptSource, BahrainTenderBoardSource,
     )
 }

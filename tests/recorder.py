@@ -30,6 +30,7 @@ RECORD_SETTINGS = {
     "oman_tender_board": {"max_pages": 1, "in_process_pages": 1},
     "kuwait_capt": {"max_pages": 2},
     "bahrain_tender_board": {"max_pages": 1, "fetch_details": True},
+    "upwork": {"client_countries": ["Qatar"], "max_pages": 1},
 }
 
 
@@ -116,13 +117,17 @@ def make_source(name: str, client):
 
 def record(names: list[str]):
     from tender_radar.http_client import PoliteClient
+    from tender_radar.sources import SOURCES
 
     for name in names or RECORD_SETTINGS:
         folder = FIXTURES / name
         folder.mkdir(parents=True, exist_ok=True)
         for old in folder.glob("*.json.gz"):
             old.unlink()
-        client = RecordingClient(PoliteClient(delay=2.0), folder)  # Gulf Times: Crawl-delay 2
+        source = SOURCES[name]
+        # Gulf Times: Crawl-delay 2. Upwork brings its own browser-like client.
+        base = source.own_client(2.0) if hasattr(source, "own_client") else PoliteClient(delay=2.0)
+        client = RecordingClient(base, folder)
         leads = make_source(name, client).collect({})
         size = sum(path.stat().st_size for path in folder.glob("*")) // 1024
         print(f"{name}: {len(leads)} leads, {len(list(folder.glob('*')))} responses, {size} KB")

@@ -329,11 +329,15 @@ are starting points, not verified facts.
 
 - **Bahrain Tender Board**: built, see above. Its awarded list is monthly PDF
   reports only, not collected.
-- **QatarEnergy LNG**: public GEP SMART bid list at
-  `eu.smart.gep.com/publicrfx/qatargas?oloc=215` (15 active, 433 closed on
-  2026-11-23). The list shows only reference, contact and dates, no titles.
-  Data comes from `POST /GetPublicRfxManageData?dd=<page token>`; the body
-  was not found. Needs a headless browser or more DevTools work.
+- **QatarEnergy LNG**: not possible. Its site links "Bids" to a GEP SMART
+  list at `eu.smart.gep.com/publicrfx/qatargas?oloc=215` (15 active, 433
+  closed on 2026-11-23), but `eu.smart.gep.com/robots.txt` is
+  `User-agent: * / Disallow: /` (checked 2026-11-23), so do not collect it,
+  with or without a headless browser. The list also has no titles, only
+  reference, contact and dates. `qatarenergylng.qa` rejects `/robots.txt`
+  with a 403 (F5 firewall). Its `/Suppliers/Recently-Awarded-Contracts` page
+  lists past awards only. The way in is supplier registration
+  (`/Suppliers/New-Contractors-and-Suppliers`).
 - **Not possible (login / invitation only)**: QatarEnergy (Mushtaryat,
   JAGGAER; robots.txt disallows `/esop`), Ooredoo, Qatar Airways, QF
   supplier portal.

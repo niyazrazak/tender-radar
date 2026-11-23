@@ -308,6 +308,8 @@
       "enabled": true,
       "publish_window": "week",
       "max_pages": 40
+,
+      "delay_seconds": 3
     },
     "oman_tender_board": {
       "enabled": true,

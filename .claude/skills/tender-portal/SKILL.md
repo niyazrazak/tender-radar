@@ -112,7 +112,7 @@ Typical symptoms and where to look:
 | `monaqasat/open: 0 tenders`, no error | HTML changed: a CSS class or an Arabic label | Probe the list URL and compare it with the selectors and `CARD_FIELDS` |
 | Fields empty but leads found | A label text changed (often a hamza or a space) | Print the labels the page has now and compare them with the label map |
 | `etimad` JSON error or HTML instead of JSON | The endpoint moved, or it wants other headers or params | Open the visitor page in a browser and look for the new XHR request |
-| HTTP 403/429 | Rate limit or bot block | Raise `http.delay_seconds` in `config.json`. Do not rotate user agents or proxies to get around a block. |
+| HTTP 403/429 | Rate limit or bot block | Give that portal a longer wait: `"delay_seconds"` in its `config.json` block (Etimad uses 3). Raise `http.delay_seconds` only if every portal needs it. Do not rotate user agents or proxies to get around a block. |
 | Every lead is NEW each run | `source_id` is not stable | Check what the id is built from |
 
 Fix the cause in the parser, then run `try_source.py` again. Keep the fix

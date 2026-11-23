@@ -47,6 +47,8 @@ class TenderRadar:
                 continue
             print(f"Collecting {name} …", flush=True)
             try:
+                # A portal that rate-limits gets its own, longer wait between requests.
+                self.client.delay = settings.get("delay_seconds", self.config.get("http", {}).get("delay_seconds", 1.0))
                 found = SOURCES[name](self.client, settings).collect(known)
                 leads += found
                 sources[name] = {"ok": True, "count": len(found), "error": ""}

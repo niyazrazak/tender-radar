@@ -7,7 +7,10 @@ const TABS = [
   ["bidding", "Bidding"], ["dismissed", "Dismissed"],
 ];
 const STATE_LABELS = { new: "", shortlisted: "Shortlisted", bidding: "Bidding", dismissed: "Dismissed" };
-const SOURCE_LABELS = { monaqasat: "Monaqasat", etimad: "Etimad", oman_tender_board: "Oman Tender Board" };
+const SOURCE_LABELS = {
+  monaqasat: "Monaqasat", mwani: "Mwani Qatar", qfa: "Qatar Football Association", etimad: "Etimad",
+  oman_tender_board: "Oman Tender Board", kuwait_capt: "Kuwait CAPT", bahrain_tender_board: "Bahrain Tender Board",
+};
 const TWEAKS = {
   density: { label: "Density", options: [["relaxed", "Relaxed"], ["compact", "Compact"]] },
   lang: { label: "Titles", options: [["en", "English"], ["orig", "Original"]] },
@@ -56,6 +59,7 @@ class Dashboard {
     try {
       const data = await api.get(`/api/leads?scope=${scope}`);
       this.leads = data.leads;
+      this.aiEnabled = data.ai_enabled;
       this.loadFailed = false;
       // Start on the focus country once; after that the user's choice stands.
       if (!this.focusApplied) this.filters.country = (data.focus_countries || [])[0] || "";
@@ -84,6 +88,15 @@ class Dashboard {
     } catch {
       runPanel.offline();
     }
+  }
+
+  /** Saves notes, owner or bid deadline. Returns true when the server took it. */
+  async saveTeamFields(lead, fields) {
+    const result = await api.post("/api/lead-update", { key: lead.key, ...fields });
+    if (!result.ok) { toast(`Could not save: ${result.data.error}`); return false; }
+    Object.assign(lead, fields);
+    this.render();
+    return true;
   }
 
   async setState(lead, state) {
@@ -121,7 +134,7 @@ class Dashboard {
     const q = this.filters.q.trim().toLowerCase();
     if (!q) return true;
     const text = [lead.title, lead.title_en, lead.buyer, lead.buyer_en, lead.ref_no, lead.matched,
-      lead.category_en, lead.activities_en, lead.brief_en].join(" ").toLowerCase();
+      lead.category_en, lead.activities_en, lead.brief_en, lead.ai_reason, lead.notes, lead.owner].join(" ").toLowerCase();
     return q.split(/\s+/).every((word) => text.includes(word));
   }
 
@@ -192,6 +205,7 @@ class Dashboard {
     });
     $("more").addEventListener("click", () => { this.shown += PAGE_SIZE; this.render(); });
     $("runNow").addEventListener("click", () => runPanel.runNow());
+    $("marketBtn").addEventListener("click", () => market.toggle());
     $("runState").addEventListener("click", (e) => { e.stopPropagation(); runPanel.toggle(); });
     document.addEventListener("click", (e) => { if (!e.target.closest("#activity")) runPanel.close(); });
     tweaks.bind(this);
@@ -210,7 +224,8 @@ class Dashboard {
         k: () => this.move(-1), ArrowUp: () => this.move(-1),
         Enter: () => this.selected >= 0 && this.open(this.selected),
         o: () => lead && window.open(lead.url, "_blank"),
-        Escape: () => drawer.close(),
+        Escape: () => (market.isOpen() ? market.close() : drawer.close()),
+        m: () => market.toggle(),
         "/": () => $("q").focus(),
         s: () => lead && this.setState(lead, "shortlisted"),
         b: () => lead && this.setState(lead, "bidding"),
@@ -273,20 +288,28 @@ function renderList(leads, selected, lang, today) {
     const isNew = lead.first_seen >= daysAgoISO(1);
     const status = lead.status !== "open" ? `<span class="badge state">${esc(lead.status)}</span>` : "";
     return `<li class="row ${i === selected ? "sel" : ""}" data-i="${i}">
-      <div class="lane-score"><span class="score ${lead.score >= 6 ? "high" : ""}">${lead.score}</span></div>
+      <div class="lane-score">${fitBadge(lead)}<span class="score ${lead.score >= 6 ? "high" : ""}" title="Keyword score">${lead.score}</span></div>
       <div class="lane-main">
         <div class="title" dir="auto">${isNew ? '<span class="badge new">New</span>' : ""}${status}${esc(title)}</div>
         <div class="meta"><span dir="auto">${esc(lead.buyer_en || lead.buyer || "Unknown buyer")}</span>
           <span class="sep"></span><span>${esc(lead.country)}</span>
           ${lead.ref_no ? `<span class="sep"></span><span>${esc(lead.ref_no)}</span>` : ""}
           ${bondKind(lead) !== "unlisted" ? `<span class="sep"></span><span>Bond ${esc(fmtBond(lead))}</span>` : ""}</div>
-        ${chips(lead.matched)}
+        ${lead.ai_reason ? `<div class="reason">${esc(lead.ai_reason)}</div>` : chips(lead.matched)}
       </div>
       <div class="lane-fee">${feeLabel(lead)}</div>
       <div class="lane-date">${lead.closing ? `<div class="d">${fmtDate(lead.closing)}</div>${leftLabel(left)}` : '<div class="left">No closing date</div>'}</div>
-      <div class="lane-state">${STATE_LABELS[lead.lead_status] ? `<span class="pill ${lead.lead_status}">${STATE_LABELS[lead.lead_status]}</span>` : ""}</div>
+      <div class="lane-state">${STATE_LABELS[lead.lead_status] ? `<span class="pill ${lead.lead_status}">${STATE_LABELS[lead.lead_status]}</span>` : ""}
+        ${lead.owner ? `<div class="owner" title="Owner">${esc(lead.owner)}</div>` : ""}</div>
     </li>`;
   }).join("");
+}
+
+/** AI fit 0-10, shown only once Claude has rated the lead. */
+function fitBadge(lead) {
+  if (lead.ai_fit === null || lead.ai_fit === undefined) return "";
+  const level = lead.ai_fit >= 7 ? "high" : lead.ai_fit >= 4 ? "mid" : "low";
+  return `<span class="fit ${level}" title="AI fit ${lead.ai_fit}/10: ${esc(lead.ai_reason)}">${lead.ai_fit}</span>`;
 }
 
 function renderQuick(quick) {
@@ -322,6 +345,7 @@ function sortLeads(leads, sort) {
   const closing = (l) => l.closing || "9999";
   const orders = {
     match: (a, b) => b.score - a.score || closing(a).localeCompare(closing(b)),
+    fit: (a, b) => (b.ai_fit ?? -1) - (a.ai_fit ?? -1) || b.score - a.score,
     closing: (a, b) => closing(a).localeCompare(closing(b)) || b.score - a.score,
     fee: (a, b) => feeUSD(a) - feeUSD(b) || b.score - a.score,
     newest: (a, b) => b.first_seen.localeCompare(a.first_seen) || b.score - a.score,

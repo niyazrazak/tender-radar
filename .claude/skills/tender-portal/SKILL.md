@@ -34,7 +34,9 @@ What this means for a source:
 - **Fill text the scorer reads.** Scoring uses `title`, `brief`, `activities`
   and `category`. A source that fills only `title` scores poorly. Get the
   activity/category name from the list if the portal gives it, and the brief
-  from the detail page.
+  from the detail page. Keep a numeric activity code at the start of each
+  activity (`620102 تصميم وبرمجة ...`): the scorer also scores code prefixes
+  from `keywords.activity_codes` in `config.json`.
 - **Fetch details only for new leads.** `known_keys` (`{key: stored status}`)
   is passed in so a source fetches detail pages only for
   `lead.key not in known_keys`. Use the status when a page depends on it:
@@ -88,10 +90,19 @@ What this means for a source:
    lists do not cover (another dialect, English-only titles), tell the user
    and suggest additions to `config.json`. The keywords are the user's
    business choice, so suggest them. Do not edit them without asking.
-8. Then run the real collection once:
+8. **Record test fixtures.** Add the source to `RECORD_SETTINGS` in
+   `tests/recorder.py` with small settings (one page), then run
+   `.venv/bin/python -m tests.recorder <name>` and
+   `.venv/bin/python -m pytest tests`. `test_every_source_has_fixtures`
+   fails until a registered source is recorded.
+9. Then run the real collection once:
    `.venv/bin/python -m tender_radar collect --sources <name>`.
 
 ## Fixing a source that broke
+
+After the fix, record the source again (`python -m tests.recorder <name>`) so
+the offline tests run against the portal's new pages.
+
 
 Typical symptoms and where to look:
 

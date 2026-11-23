@@ -1,0 +1,8 @@
+.venv
+data
+logs
+reports
+tests
+.git
+.env
+.claude

@@ -50,7 +50,7 @@ class MonaqasatSource:
                 self._add_details(lead)
             # An open tender keeps its id when awarded, so check the stored status, not only the key.
             if self.award_reports and lead.status == "awarded" and known_keys.get(lead.key) != "awarded":
-                self._add_award(lead)
+                self.add_award(lead)
         return leads
 
     def _collect_list(self, status: str, max_pages: int) -> list[Lead]:
@@ -123,7 +123,8 @@ class MonaqasatSource:
             "envelopes": fields.get("نظام المظاريف", ""),
         }
 
-    def _add_award(self, lead: Lead):
+    def add_award(self, lead: Lead):
+        """Adds winners, award value and bids from the public award report. Also used to backfill old tenders."""
         url = BASE + AWARD_REPORT.format(id=lead.source_id)
         try:
             soup = BeautifulSoup(self.client.get_text(url), "html.parser")

@@ -4,6 +4,7 @@
 const drawer = {
   lead: null,
   showOriginal: false,
+  analyzing: false,
 
   show(lead) {
     if (!lead) return;
@@ -39,7 +40,11 @@ const drawer = {
         <div class="seg">${["shortlisted", "bidding", "dismissed"].map((s) =>
           `<button data-state="${s}" class="${lead.lead_status === s ? "on" : ""}">${STATE_LABELS[s]}</button>`).join("")}</div>
       </div>
+      ${fitBlock(lead)}
+      ${analysisBlock(lead, this.analyzing)}
+      ${teamBlock(lead)}
       <dl class="facts">${facts(lead)}</dl>
+      ${bidsBlock(lead)}
       ${chips(lead.matched) ? `<div class="block"><h4>Matched keywords</h4>${chips(lead.matched)}</div>` : ""}
       ${activities ? `<div class="block"><h4>Activities</h4><p dir="auto">${esc(activities)}</p></div>` : ""}
       ${brief ? `<div class="block"><h4>Brief ${hasOriginal ? `<button class="toggle-lang" data-lang>${this.showOriginal ? "Show English" : "Show original"}</button>` : ""}</h4>
@@ -63,6 +68,155 @@ const drawer = {
       const state = e.target.closest("[data-state]");
       if (state) app.setState(this.lead, state.dataset.state);
       if (e.target.closest("[data-lang]")) { this.showOriginal = !this.showOriginal; this.refresh(); }
+      if (e.target.closest("[data-analyze]")) this.analyze([]);
+      if (e.target.closest("[data-save-team]")) this.saveTeam(app);
+    });
+    $("drawerBody").addEventListener("change", (e) => {
+      if (e.target.matches("[data-upload]") && e.target.files.length) this.analyze([...e.target.files]);
+    });
+  },
+
+  async saveTeam(app) {
+    const form = $("drawerBody");
+    const fields = {
+      owner: form.querySelector("[name=owner]").value,
+      bid_due: form.querySelector("[name=bid_due]").value,
+      notes: form.querySelector("[name=notes]").value,
+    };
+    if (await app.saveTeamFields(this.lead, fields)) toast("Saved");
+  },
+
+  /** Uploads tender documents (if any) and asks Claude for a bid / no-bid analysis. */
+  async analyze(files) {
+    const lead = this.lead;
+    this.analyzing = true;
+    this.refresh();
+    try {
+      const uploads = await Promise.all(files.map(async (file) => ({ name: file.name, data: await toBase64(file) })));
+      const result = await api.post("/api/analyze", { key: lead.key, files: uploads });
+      if (!result.ok) throw new Error(result.data.error);
+      lead.ai_analysis = result.data.analysis;
+    } catch (error) {
+      toast(`Analysis failed: ${error.message}`);
+    } finally {
+      this.analyzing = false;
+      if (this.lead === lead) this.refresh();
+    }
+  },
+};
+
+function fitBlock(lead) {
+  if (lead.ai_fit === null || lead.ai_fit === undefined) return "";
+  return `<div class="block"><h4>AI fit</h4><p>${fitBadge(lead)} ${esc(lead.ai_reason)}</p></div>`;
+}
+
+const VERDICTS = { bid: ["Bid", "good"], consider: ["Consider", "soon"], "no-bid": ["No bid", "urgent"] };
+
+function analysisBlock(lead, busy) {
+  const a = lead.ai_analysis;
+  const off = !app.aiEnabled;
+  const controls = `<div class="analyze-controls">
+      <button class="btn ${a ? "ghost" : "primary"}" data-analyze ${busy || off ? "disabled" : ""}>${a ? "Analyze again" : "Analyze tender"}</button>
+      <label class="btn ghost ${busy || off ? "disabled" : ""}" title="PDF or text files of the tender documents">Upload documents…
+        <input type="file" data-upload multiple accept=".pdf,.txt,.md" hidden ${busy || off ? "disabled" : ""}></label>
+      ${busy ? '<span class="busy">Claude is reading the tender… this can take a minute or two.</span>' : ""}
+      ${off ? '<span class="busy">Set ANTHROPIC_API_KEY in .env and restart the service to turn on AI analysis.</span>' : ""}
+    </div>`;
+  if (!a) return `<div class="block"><h4>Bid / no-bid</h4>${controls}</div>`;
+  const [label, tone] = VERDICTS[a.recommendation] || [a.recommendation, ""];
+  const list = (title, items) => (items && items.length
+    ? `<h5>${title}</h5><ul>${items.map((item) => `<li>${esc(item)}</li>`).join("")}</ul>` : "");
+  return `<div class="block analysis"><h4>Bid / no-bid</h4>
+      <div class="verdict ${tone}">${esc(label)}</div>
+      <p>${esc(a.reasoning)}</p>
+      <p class="summary">${esc(a.summary)}</p>
+      ${list("Scope", a.scope)}${list("Requirements", a.requirements)}${list("Key dates", a.key_dates)}
+      ${list("Risks", a.risks)}${list("Questions for the buyer", a.questions)}
+      <div class="cap">${a.documents_read && a.documents?.length ? `Read ${a.documents.map(esc).join(", ")}` : "From the portal details only. Upload the tender documents for a full analysis."}</div>
+      ${controls}</div>`;
+}
+
+function teamBlock(lead) {
+  return `<div class="block team"><h4>Team</h4>
+      <div class="team-row">
+        <label>Owner<input name="owner" value="${esc(lead.owner)}" placeholder="Who prepares the bid"></label>
+        <label>Our bid deadline<input name="bid_due" type="date" value="${esc(lead.bid_due)}"></label>
+      </div>
+      <label>Notes<textarea name="notes" rows="3" placeholder="Partner, pricing, questions…">${esc(lead.notes)}</textarea></label>
+      <div><button class="btn ghost" data-save-team>Save</button></div></div>`;
+}
+
+function bidsBlock(lead) {
+  const bids = lead.extra?.bids || [];
+  if (!bids.length) return "";
+  const rows = bids.map((bid) => `<tr class="${bid.note.includes("مستبعد") ? "excluded" : ""}">
+      <td dir="auto">${esc(bid.company)}</td><td class="num">${esc(bid.value)}</td><td dir="auto">${esc(bid.result)}</td></tr>`).join("");
+  return `<div class="block"><h4>Bids</h4><table class="bids"><tr><th>Company</th><th>Bid (${esc(lead.currency)})</th><th>Result</th></tr>${rows}</table></div>`;
+}
+
+function toBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1]);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Market intelligence: who wins tenders like ours, which buyers buy them, at what price. */
+const market = {
+  isOpen() {
+    return !$("market").hidden;
+  },
+
+  async toggle() {
+    if (this.isOpen()) return this.close();
+    $("market").hidden = false;
+    $("marketBody").innerHTML = '<div class="note">Loading…</div>';
+    try {
+      this.render(await api.get("/api/market"));
+    } catch (error) {
+      $("marketBody").innerHTML = `<div class="note">Could not load: ${esc(error.message)}</div>`;
+    }
+  },
+
+  close() {
+    $("market").hidden = true;
+  },
+
+  render(data) {
+    const money = (n, currency = "QAR") => (n ? `${Math.round(n).toLocaleString("en-US")} ${currency}` : "—");
+    const competitors = data.competitors.map((c) => `<tr>
+        <td dir="auto">${esc(c.company)}</td><td class="num">${c.relevant_wins}</td><td class="num">${c.wins}</td>
+        <td class="num">${c.bids}</td><td class="num">${c.win_rate === null ? "—" : `${Math.round(c.win_rate * 100)}%`}</td>
+        <td class="num">${money(c.won_value)}</td></tr>`).join("");
+    const buyers = data.buyers.map((b) => `<tr><td dir="auto">${esc(b.buyer)}</td>
+        <td class="num">${b.relevant}</td><td class="num">${b.awards}</td><td class="num">${money(b.value, b.currency)}</td></tr>`).join("");
+    const recent = data.recent.map((r) => `<tr>
+        <td><a href="${esc(r.url)}" target="_blank" rel="noopener" dir="auto">${esc(r.title)}</a><div class="cap" dir="auto">${esc(r.buyer)}</div></td>
+        <td dir="auto">${esc(r.winners.join("; "))}</td><td class="num">${money(r.value, r.currency)}</td>
+        <td class="num">${r.bidders || "—"}</td>
+        <td class="num">${r.lowest_bid ? `${money(r.lowest_bid, "")} – ${money(r.highest_bid, "")}` : "—"}</td></tr>`).join("");
+    const empty = !data.awarded
+      ? `<div class="note">No award reports yet (${data.awarded_total} awarded tenders stored). Run
+         <code>.venv/bin/python -m tender_radar backfill-awards</code> to read their reports, or wait for the next checks.</div>`
+      : "";
+    $("marketBody").innerHTML = `
+      <div class="drawer-head"><span>Market · ${data.awarded} award reports · ${data.relevant_awarded} in your field</span>
+        <button class="icon-btn" data-close-market aria-label="Close">
+          <svg viewBox="0 0 20 20"><path d="m5 5 10 10M15 5 5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+      ${empty}
+      <h3>Competitors</h3><p class="cap">"In your field" counts tenders that match your keywords or AI fit.</p>
+      <table class="grid"><tr><th>Company</th><th>Wins in your field</th><th>All wins</th><th>Bids</th><th>Win rate</th><th>Won value</th></tr>${competitors}</table>
+      <h3>Buyers</h3>
+      <table class="grid"><tr><th>Buyer</th><th>Awards in your field</th><th>All awards</th><th>Awarded value</th></tr>${buyers}</table>
+      <h3>Recent awards in your field</h3>
+      <table class="grid"><tr><th>Tender</th><th>Winner</th><th>Award</th><th>Bidders</th><th>Bid range</th></tr>${recent}</table>`;
+  },
+
+  bind() {
+    $("market").addEventListener("click", (e) => {
+      if (e.target === $("market") || e.target.closest("[data-close-market]")) this.close();
     });
   },
 };
@@ -157,6 +311,7 @@ const tweaks = {
       this.render(app);
     });
     drawer.bind(app);
+    market.bind();
   },
 
   render(app) {

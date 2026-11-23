@@ -15,9 +15,11 @@ BATCH_CHARS = 4000
 class Translator:
     """Translates Arabic text to English, caching every result in SQLite so each text is sent once."""
 
-    def __init__(self, db, delay_seconds: float = 1.0):
+    def __init__(self, db, delay_seconds: float = 1.0, fallback=None):
+        """`fallback(texts) -> list[str]` translates when Google rate-limits (Claude, when AI is on)."""
         self.db = db
         self.delay = delay_seconds
+        self.fallback = fallback
         self.blocked = False  # set after a 429; retrying only extends the block
         self.db.execute("CREATE TABLE IF NOT EXISTS translations (source TEXT PRIMARY KEY, english TEXT NOT NULL)")
 
@@ -30,9 +32,10 @@ class Translator:
         """Translates every uncached Arabic text, in batches. Returns how many were added to the cache."""
         added = 0
         for batch in _batches(self._uncached(texts)):
-            if self.blocked:
+            if self.blocked and not self.fallback:
                 break
-            pairs = [(src, en) for src, en in zip(batch, self._fetch(batch)) if en]
+            english = self.fallback(batch) if self.blocked else self._fetch(batch)
+            pairs = [(src, en) for src, en in zip(batch, english) if en]
             self.db.executemany("INSERT OR REPLACE INTO translations VALUES (?, ?)", pairs)
             self.db.commit()
             added += len(pairs)
@@ -59,7 +62,8 @@ class Translator:
             response = requests.post(ENDPOINT, params=PARAMS, data=[("q", t) for t in batch], timeout=30)
             if response.status_code == 429:
                 self.blocked = True
-                print("  ! translation rate-limited by Google; the rest will be translated on the next run")
+                rest = "Claude translates the rest" if self.fallback else "the rest will be translated on the next run"
+                print(f"  ! translation rate-limited by Google; {rest}")
                 return [""] * len(batch)
             response.raise_for_status()
             return [_text_of(item) for item in response.json()]

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from tender_radar.cli import ROOT, TenderRadar
-from tender_radar.notifier import Notifier
+from tender_radar.alerts import Alerts
 from tender_radar.runs import RunLog, parse_utc
 from tender_radar.store import LeadStore
 
@@ -71,6 +71,7 @@ class Scheduler:
         result, error, new_leads = {}, "", []
         try:
             result = radar.collect([])
+            radar.screen()  # before the report, so the digest can use the AI fit
             leads = radar.report(radar.config.get("min_score", 3), 0, result["new_keys"])
             new_leads = [lead for lead in leads if lead["key"] in result["new_keys"]]
             radar.translate_all()
@@ -78,7 +79,12 @@ class Scheduler:
             traceback.print_exc()
             error = str(exc)[:500]
         runs.finish(run_id, result, error)
-        Notifier().run_finished(new_leads, result, error)
+        alerts = Alerts(radar.config)
+        try:
+            alerts.run_finished(new_leads, result, error)
+            alerts.send_reminders(radar.store)  # also after a failed check: deadlines do not wait
+        except Exception:
+            traceback.print_exc()
         with self._state:
             self._last = runs.last()
             self._running_since = None

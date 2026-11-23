@@ -234,12 +234,57 @@ you learn something new about a portal (a changed label, a new quirk).
   `closing-tenders` (فض العطاءات, bid opening), `winning-bids` (الترسيات),
   `postponement` (تأجيل المناقصات), `qualifications`, `warranties`.
 
+## Bahrain Tender Board — Bahrain (`sources/bahrain_tender_board.py`)
+
+- Owner: Tender Board, Kingdom of Bahrain. Base: `https://www.tenderboard.gov.bh`.
+  The supplier e-tendering system (`etendering.tenderboard.gov.bh`) needs
+  registration; the source does not use it.
+- No `robots.txt`: `/robots.txt` returns the site's HTML "not found" page
+  with HTTP 200. The current tenders list is public, no login.
+- No TLS problems with the default `PoliteClient`.
+- **List:** `/Tenders/PublicTenders/` loads its rows with JavaScript from two
+  ASP.NET page methods. Both are `POST` with a JSON body, on
+  `/Templates/TenderBoardWebService.aspx/`:
+  `GetCurrentPublicTenderPageCount` returns `{"d": 47}` and
+  `GetCurrentPublicTenderByPage` returns `{"d": "<html rows>"}`. The body is
+  the page's filters with nothing selected (`ministry: "0"`,
+  `publicTenderOnly: "true"`, `auctionOnly: "true"`, ...) plus `Page`
+  (`"-1"` for the count, else 1-based). All values are strings.
+  The source sends them with `PoliteClient.post_json` (same wait, TLS,
+  headers and retries as a GET).
+- 10 rows a page, newest first, 469 tenders on 2026-11-23. Past the last
+  page the service returns an HTML error page, not JSON. The source reads the
+  page count first and stops there.
+- **Row:** `div.rows` with `div.column[data-label=...]` cells:
+  `No./Tender Subject` (an `a` to the detail page; the `span` inside holds
+  the purchasing authority's ref no, the rest is the title), `Tender Type`
+  (`Internal` / `External`), `Purchasing Authority`, `Publish Date`,
+  `Purchase Before`, `Closing Date`.
+- The id is the Tender Board number from the link's `id=` query, decoded:
+  `581/2026/BTB (MTT/PMA/02/2026)`.
+- Dates are not consistent: `23, Nov,2026` and `08 Dec,2026` in the list,
+  `Wednesday,  09 December 2026` on the detail page. One regex reads all.
+- **Detail page** `/TenderDetails/?id=...` is a plain public GET. It has
+  `Tender Description` (used as `brief`) and a `dl` with `Initial Bond`
+  (`BD 4000`), `Tender Fees` (`BD 100`), `Invitation Method`,
+  `Contract Duration`, `Opening Date`, bid validity. Fetched only for new
+  leads.
+- No category on the list or the detail page (the CPV line is commented out
+  in the HTML), so scoring uses title and brief.
+- **Awarded tenders** (`/Tenders/AwardedTenders/`) are monthly PDF reports
+  (up to 16 MB each), not a list. Not collected. `OpenedBids`, `TobeOpened`
+  and `ArchivedTenders` are other public pages, not checked yet.
+- Currency: BHD. A first run is about 48 list requests plus one detail page
+  for each of about 470 tenders (about 9 minutes at a 1-second delay). Daily
+  runs fetch details only for new tenders.
+
 ## Candidate portals (not built yet)
 
 Check each one with the steps in SKILL.md before you plan work. These notes
 are starting points, not verified facts.
 
-- **Bahrain Tender Board** (`tenderboard.gov.bh`): public list of tenders.
+- **Bahrain Tender Board**: built, see above. Its awarded list is monthly PDF
+  reports only, not collected.
 - **QatarEnergy LNG**: public GEP SMART bid list at
   `eu.smart.gep.com/publicrfx/qatargas?oloc=215` (15 active, 433 closed on
   2026-11-23). The list shows only reference, contact and dates, no titles.

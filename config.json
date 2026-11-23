@@ -187,7 +187,12 @@
       "امن المعلومات",
       "امن تكنولوجيا المعلومات",
       "محلل بيانات",
-      "محللي بيانات"
+      "محللي بيانات",
+      "risk management solution",
+      "digital risk",
+      "online auction",
+      "auction solution",
+      "implementation of"
     ],
     "weak": [
       "system",
@@ -241,7 +246,9 @@
       "data centre",
       "مركز البيانات",
       "social media",
-      "digital marketing"
+      "digital marketing",
+      "solution",
+      "solutions"
     ],
     "exclude": [
       "medicine",
@@ -317,7 +324,46 @@
     },
     "sidra": {
       "enabled": true
+    },
+    "kuwait_capt": {
+      "enabled": true,
+      "max_pages": 10
+    },
+    "bahrain_tender_board": {
+      "enabled": true,
+      "max_pages": 60,
+      "fetch_details": true
     }
+  },
+  "ai": {
+    "enabled": true,
+    "min_fit": 6,
+    "screen_min_score": 1,
+    "max_per_run": 150,
+    "translate_fallback": true
+  },
+  "alerts": {
+    "digest_min_fit": 5,
+    "reminder_days": [7, 3, 1],
+    "dashboard_url": "http://127.0.0.1:8765",
+    "email": {
+      "enabled": false,
+      "smtp_host": "smtp.office365.com",
+      "smtp_port": 587,
+      "username": "",
+      "from": "",
+      "to": [],
+      "password_env": "TENDER_RADAR_SMTP_PASSWORD"
+    },
+    "telegram": {
+      "enabled": false,
+      "chat_id": "",
+      "token_env": "TENDER_RADAR_TELEGRAM_TOKEN"
+    }
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "password_env": "TENDER_RADAR_PASSWORD"
   },
   "schedule": {
     "interval_hours": 6,

@@ -2,14 +2,35 @@
 .venv/
 __pycache__/
 *.pyc
+*.egg-info/
+build/
+dist/
+
+# Test and lint caches
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # Runtime output: the lead database, logs and generated reports
 data/
 logs/
 reports/
+*.log
 
 # Local Claude Code settings
 .claude/settings.local.json
 
+# Editors
+.vscode/
+.idea/
+
 # macOS
 .DS_Store
+
+# Secrets: API key, SMTP password, Telegram token, dashboard password
+.env
+.env.*
+!.env.example

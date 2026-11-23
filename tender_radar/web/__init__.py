@@ -1,18 +1,30 @@
+import base64
+import hashlib
+import hmac
 import json
 import mimetypes
+import os
+import re
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from tender_radar.cli import ROOT, TRANSLATED_FIELDS
+from tender_radar.ai import LeadAnalyst
+from tender_radar.cli import DEFAULT_MIN_FIT, ROOT, TRANSLATED_FIELDS, TenderRadar
+from tender_radar.market import market_report
 from tender_radar.runs import RunLog
 from tender_radar.scheduler import Scheduler
 from tender_radar.store import LeadStore
 from tender_radar.translator import Translator
 
 STATIC = Path(__file__).parent / "static"
+DOCUMENTS = ROOT / "data" / "documents"
 DEFAULT_PORT = 8765
+LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
+MAX_BODY = 60 * 1024 * 1024  # tender documents are uploaded as base64 JSON
+DOCUMENT_TYPES = (".pdf", ".txt", ".md")
+SAFE_NAME = re.compile(r"[^\w.\- ]+")
 
 
 def serve(config_path: Path):
@@ -21,18 +33,31 @@ def serve(config_path: Path):
     scheduler = Scheduler(config_path, settings.get("interval_hours", 6))
     scheduler.start()
     port = settings.get("port", DEFAULT_PORT)
-    # Localhost only: the dashboard has no login.
-    server = ThreadingHTTPServer(("127.0.0.1", port), _handler(config_path, scheduler))
-    print(f"Tender Radar dashboard: http://127.0.0.1:{port}", flush=True)
+    host, password = _listen_settings(config.get("server", {}))
+    server = ThreadingHTTPServer((host, port), _handler(config_path, scheduler, password))
+    print(f"Tender Radar dashboard: http://{host}:{port}{' (login required)' if password else ''}", flush=True)
     server.serve_forever()
 
 
-def _handler(config_path: Path, scheduler: Scheduler):
+def _listen_settings(settings: dict) -> tuple[str, str]:
+    """Localhost needs no login. Any other address (a shared server) refuses to start without a password."""
+    host = os.environ.get("TENDER_RADAR_HOST") or settings.get("host", "127.0.0.1")
+    password = os.environ.get(settings.get("password_env", "TENDER_RADAR_PASSWORD"), "")
+    if host not in LOCAL_HOSTS and not password:
+        raise SystemExit(
+            f"server.host is {host}, so other computers can reach the dashboard. "
+            f"Set a password in ${settings.get('password_env', 'TENDER_RADAR_PASSWORD')} first."
+        )
+    return host, password
+
+
+def _handler(config_path: Path, scheduler: Scheduler, password: str = ""):
     class Handler(DashboardHandler):
         pass
 
     Handler.config_path = config_path
     Handler.scheduler = scheduler
+    Handler.password = password
     return Handler
 
 
@@ -44,29 +69,58 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
     config_path: Path
     scheduler: Scheduler
+    password: str = ""
 
     def do_GET(self):
+        if not self._authorized():
+            return
         url = urlparse(self.path)
-        routes = {"/api/leads": self._leads, "/api/status": self._status, "/api/export": self._export}
+        routes = {
+            "/api/leads": self._leads, "/api/status": self._status, "/api/export": self._export,
+            "/api/market": self._market,
+        }
         if url.path in routes:
             return self._safely(routes[url.path], parse_qs(url.query))
         self._static(url.path)
 
     def do_POST(self):
-        routes = {"/api/run": self._run, "/api/lead-status": self._lead_status}
+        if not self._authorized():
+            return
+        routes = {
+            "/api/run": self._run, "/api/lead-status": self._lead_status, "/api/lead-update": self._lead_update,
+            "/api/analyze": self._analyze,
+        }
         path = urlparse(self.path).path
         # A JSON content type forces a CORS preflight, which we never answer, so other sites cannot post here.
         if not self.headers.get("Content-Type", "").startswith("application/json"):
             return self._json({"error": "JSON only"}, HTTPStatus.UNSUPPORTED_MEDIA_TYPE)
         if path not in routes:
             return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+        if int(self.headers.get("Content-Length") or 0) > MAX_BODY:
+            return self._json({"error": "upload too large (60 MB at most)"}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
         self._safely(routes[path], self._body())
+
+    def _authorized(self) -> bool:
+        """HTTP Basic login when a password is set (any user name). The browser remembers it."""
+        if not self.password:
+            return True
+        header = self.headers.get("Authorization", "")
+        try:
+            given = base64.b64decode(header.removeprefix("Basic ")).decode().partition(":")[2]
+        except ValueError:
+            given = ""
+        if header.startswith("Basic ") and hmac.compare_digest(given.encode(), self.password.encode()):
+            return True
+        self._send(b"Login required", "text/plain", HTTPStatus.UNAUTHORIZED,
+                   {"WWW-Authenticate": 'Basic realm="Tender Radar", charset="UTF-8"'})
+        return False
 
     def _leads(self, query: dict):
         config = self._config()
         min_score = config.get("min_score", 3) if _first(query, "scope") != "all" else -999
         store = _store()
-        leads = store.query(min_score, include_closed=_first(query, "closed") == "1")
+        min_fit = config.get("ai", {}).get("min_fit", DEFAULT_MIN_FIT) if min_score > -999 else None
+        leads = store.query(min_score, include_closed=_first(query, "closed") == "1", min_fit=min_fit)
         translator = Translator(store.db)
         for lead in leads:
             for field in TRANSLATED_FIELDS:
@@ -75,6 +129,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "leads": leads,
             "min_score": config.get("min_score", 3),
             "focus_countries": config.get("focus_countries", []),
+            "ai_enabled": LeadAnalyst.available(config),
         })
 
     def _status(self, _query: dict):
@@ -87,7 +142,37 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "runs": RunLog(store.db).recent(8),
             "sources": [dict(row) for row in counts],
             "company": self._config().get("company", ""),
+            "ai_enabled": LeadAnalyst.available(self._config()),
         })
+
+    def _market(self, _query: dict):
+        store = _store()
+        leads = store.query(-999, include_closed=True)
+        translator = Translator(store.db)
+        for lead in leads:
+            lead["title_en"], lead["buyer_en"] = translator.cached(lead["title"]), translator.cached(lead["buyer"])
+        report = market_report(leads, self._config().get("min_score", 3))
+        report["awarded_total"] = store.db.execute("SELECT COUNT(*) FROM leads WHERE status = 'awarded'").fetchone()[0]
+        self._json(report)
+
+    def _lead_update(self, body: dict):
+        if not _store().set_team_fields(str(body.get("key", "")), body):
+            return self._json({"error": "lead not found"}, HTTPStatus.NOT_FOUND)
+        self._json({"ok": True})
+
+    def _analyze(self, body: dict):
+        """Saves uploaded tender documents next to the lead, then asks Claude for a bid / no-bid analysis."""
+        key = str(body.get("key", ""))
+        folder = DOCUMENTS / hashlib.sha1(key.encode()).hexdigest()[:16]
+        for upload in body.get("files", []):
+            name = SAFE_NAME.sub("_", Path(str(upload.get("name", ""))).name).strip() or "document.pdf"
+            if not name.lower().endswith(DOCUMENT_TYPES):
+                raise ValueError(f"{name}: only PDF and text files can be read")
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / name).write_bytes(base64.b64decode(upload.get("data", "")))
+        documents = sorted((path.name, path.read_bytes()) for path in folder.glob("*")) if folder.is_dir() else []
+        analysis = TenderRadar(self.config_path).analyze(key, documents)
+        self._json({"analysis": analysis})
 
     def _run(self, _body: dict):
         started = self.scheduler.request_run()

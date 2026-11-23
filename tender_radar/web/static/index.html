@@ -21,6 +21,9 @@
       <button class="run-state" id="runState" aria-haspopup="true" title="Recent checks">
         <span class="dot" id="runDot"></span><span id="runText">Connecting…</span>
       </button>
+      <button class="btn ghost" id="marketBtn" title="Who wins tenders like yours ( m )">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 16V9m4 7V5m4 11v-5m4 5V7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Market
+      </button>
       <a class="btn ghost" href="/api/export" title="Download the latest Excel report">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10m0 0-4-4m4 4 4-4M4 16h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Excel
       </a>
@@ -59,6 +62,7 @@
       </select>
       <select id="sort">
         <option value="match">Best match</option>
+        <option value="fit">AI fit</option>
         <option value="closing">Closing soonest</option>
         <option value="newest">Newest first</option>
         <option value="fee">Lowest fee</option>
@@ -80,7 +84,7 @@
   <footer class="keys">
     <span><kbd>j</kbd><kbd>k</kbd> move</span><span><kbd>↵</kbd> open</span>
     <span><kbd>s</kbd> shortlist</span><span><kbd>b</kbd> bidding</span><span><kbd>d</kbd> dismiss</span>
-    <span><kbd>u</kbd> back to inbox</span><span><kbd>/</kbd> search</span>
+    <span><kbd>u</kbd> back to inbox</span><span><kbd>/</kbd> search</span><span><kbd>m</kbd> market</span>
   </footer>
 </div>
 
@@ -88,6 +92,10 @@
   <div class="drawer-body" id="drawerBody"></div>
 </aside>
 <div class="scrim" id="scrim"></div>
+
+<section class="market" id="market" hidden aria-label="Market intelligence">
+  <div class="market-body" id="marketBody"></div>
+</section>
 
 <div class="toast" id="toast" role="status"></div>
 

@@ -49,6 +49,15 @@ class RunLog:
         rows = self.db.execute("SELECT * FROM runs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
         return [{**dict(row), "sources": json.loads(row["sources"] or "{}")} for row in rows]
 
+    def last_counts(self, lookback: int = 20) -> dict:
+        """{source: tenders found} from the latest successful collection of each source."""
+        counts = {}
+        for run in self.recent(lookback):
+            for name, item in run["sources"].items():
+                if item.get("ok") and name not in counts:
+                    counts[name] = item.get("count", 0)
+        return counts
+
     def last(self) -> dict | None:
         runs = self.recent(1)
         return runs[0] if runs else None

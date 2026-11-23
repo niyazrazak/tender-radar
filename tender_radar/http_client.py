@@ -33,12 +33,20 @@ class PoliteClient:
         headers = {"X-Requested-With": "XMLHttpRequest", "Accept": "application/json", **kwargs.pop("headers", {})}
         return self._get(url, headers=headers, **kwargs).json()
 
+    def post_json(self, url: str, body: dict, **kwargs) -> dict:
+        """POST a JSON body and read JSON back, with the same wait and retries as a GET."""
+        headers = {"X-Requested-With": "XMLHttpRequest", "Accept": "application/json", **kwargs.pop("headers", {})}
+        return self._request("post", url, json=body, headers=headers, **kwargs).json()
+
     def _get(self, url: str, **kwargs) -> requests.Response:
+        return self._request("get", url, **kwargs)
+
+    def _request(self, method: str, url: str, **kwargs) -> requests.Response:
         last_error = None
         for attempt in range(self.retries):
             self._wait()
             try:
-                response = self.session.get(url, timeout=self.timeout, **kwargs)
+                response = self.session.request(method, url, timeout=self.timeout, **kwargs)
                 response.raise_for_status()
                 return response
             except requests.RequestException as error:

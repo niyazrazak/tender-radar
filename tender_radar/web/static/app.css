@@ -222,3 +222,44 @@ kbd { font: 11px/16px ui-monospace, Menlo, monospace; border: 1px solid var(--li
   .filters { flex-wrap: wrap; }
   .lane-fee, .lane-state, .keys, .run-state span:last-child { display: none; }
 }
+
+/* AI fit */
+.lane-score { flex-direction: column; align-items: center; gap: 4px; }
+.fit { min-width: 28px; height: 22px; padding: 0 6px; border-radius: 6px; display: grid; place-items: center; font-weight: 650; font-size: 13px; font-variant-numeric: tabular-nums; border: 1.5px solid currentColor; }
+.fit.high { color: var(--good); }
+.fit.mid { color: var(--soon); }
+.fit.low { color: var(--ink-3); }
+.block .fit { display: inline-grid; margin-right: 6px; }
+.reason { color: var(--ink-2); font-size: 13px; margin-top: 2px; }
+.owner { color: var(--ink-3); font-size: 12px; margin-top: 4px; text-align: right; }
+
+/* Bid analysis */
+.analysis ul { margin: 4px 0 10px; padding-left: 18px; color: var(--ink-2); line-height: 22px; }
+.analysis h5 { margin: 12px 0 0; font-size: 13px; }
+.analysis .summary { margin-top: 8px; }
+.verdict { display: inline-block; font-weight: 650; padding: 2px 10px; border-radius: 999px; margin-bottom: 8px; border: 1.5px solid currentColor; }
+.verdict.good { color: var(--good); }
+.verdict.soon { color: var(--soon); }
+.verdict.urgent { color: var(--urgent); }
+.analyze-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.btn.disabled, .btn:disabled { opacity: .5; pointer-events: none; }
+label.btn { cursor: pointer; }
+.busy, .cap { color: var(--ink-3); font-size: 13px; }
+
+/* Team fields */
+.team label { display: flex; flex-direction: column; gap: 4px; color: var(--ink-3); font-size: 13px; margin-bottom: 8px; }
+.team input, .team textarea { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 6px 8px; color: var(--ink); font: inherit; }
+.team-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* Bids and market tables */
+.bids, .grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bids th, .bids td, .grid th, .grid td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.bids th, .grid th { color: var(--ink-3); font-weight: 550; }
+.num { text-align: right !important; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bids .excluded { color: var(--ink-3); text-decoration: line-through; }
+.market { position: fixed; inset: 0; z-index: 45; background: rgba(0,0,0,.25); display: flex; justify-content: center; align-items: flex-start; padding: 48px 24px; overflow-y: auto; }
+.market-body { background: var(--surface); border-radius: 12px; max-width: 1080px; width: 100%; padding: 24px 32px 40px; box-shadow: 0 20px 60px rgba(0,0,0,.18); }
+.market-body h3 { margin: 28px 0 8px; font-size: 15px; }
+.market-body .note { color: var(--ink-2); margin: 16px 0; }
+.market-body a { text-decoration: none; }
+.market-body a:hover { text-decoration: underline; }

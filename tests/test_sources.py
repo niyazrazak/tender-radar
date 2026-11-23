@@ -8,14 +8,14 @@ import re
 import pytest
 
 from tender_radar.sources import SOURCES
-from tests.recorder import FIXTURES, RECORD_SETTINGS, ReplayClient
+from tests.recorder import FIXTURES, RECORD_SETTINGS, ReplayClient, make_source
 
 ISO = re.compile(r"\d{4}-\d{2}-\d{2}")
 RECORDED = [name for name in RECORD_SETTINGS if (FIXTURES / name).is_dir()]
 
 
 def collect(name: str):
-    return SOURCES[name](ReplayClient(FIXTURES / name), RECORD_SETTINGS[name]).collect({})
+    return make_source(name, ReplayClient(FIXTURES / name)).collect({})
 
 
 def test_every_source_has_fixtures():

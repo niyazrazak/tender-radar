@@ -24,6 +24,7 @@ RECORD_SETTINGS = {
     "sidra": {},
     "woqod": {"max_pages": 1},
     "qafco": {"max_age_days": 120},
+    "gulf_times": {"days": 1, "sections": ["main"], "cache_dir": ""},
     "etimad": {"max_pages": 1, "publish_window": "week"},
     "oman_tender_board": {"max_pages": 1, "in_process_pages": 1},
     "kuwait_capt": {"max_pages": 2},
@@ -55,6 +56,9 @@ class RecordingClient:
     def get_pdf_text(self, url, **kwargs):
         return self._save("get_pdf_text", url, kwargs, self.client.get_pdf_text(url, **kwargs))
 
+    def read_pdf(self, url, reader, **kwargs):
+        return self._save("read_pdf", url, kwargs, self.client.read_pdf(url, reader, **kwargs))
+
     def post_json(self, url, body, **kwargs):
         return self._save("post_json", url, {**kwargs, "body": body}, self.client.post_json(url, body, **kwargs))
 
@@ -82,6 +86,9 @@ class ReplayClient:
     def get_pdf_text(self, url, **kwargs):
         return self._load("get_pdf_text", url, kwargs)
 
+    def read_pdf(self, url, reader, **kwargs):
+        return self._load("read_pdf", url, kwargs)  # the recorded reading; `reader` is not called
+
     def post_json(self, url, body, **kwargs):
         return self._load("post_json", url, {**kwargs, "body": body})
 
@@ -92,17 +99,30 @@ class ReplayClient:
         return json.loads(gzip.decompress(path.read_bytes()))["answer"]
 
 
+def make_source(name: str, client):
+    """A source as the tests run it. A source that reads with Claude gets one only when recording."""
+    from tender_radar.sources import SOURCES
+
+    source = SOURCES[name]
+    if getattr(source, "needs_ai", False) and not isinstance(client, ReplayClient):
+        from tender_radar.ai import LeadAnalyst
+        from tender_radar.cli import ROOT
+
+        config = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
+        return source(client, RECORD_SETTINGS[name], analyst=LeadAnalyst(config))
+    return source(client, RECORD_SETTINGS[name])
+
+
 def record(names: list[str]):
     from tender_radar.http_client import PoliteClient
-    from tender_radar.sources import SOURCES
 
     for name in names or RECORD_SETTINGS:
         folder = FIXTURES / name
         folder.mkdir(parents=True, exist_ok=True)
         for old in folder.glob("*.json.gz"):
             old.unlink()
-        client = RecordingClient(PoliteClient(delay=1.0), folder)
-        leads = SOURCES[name](client, RECORD_SETTINGS[name]).collect({})
+        client = RecordingClient(PoliteClient(delay=2.0), folder)  # Gulf Times: Crawl-delay 2
+        leads = make_source(name, client).collect({})
         size = sum(path.stat().st_size for path in folder.glob("*")) // 1024
         print(f"{name}: {len(leads)} leads, {len(list(folder.glob('*')))} responses, {size} KB")
 

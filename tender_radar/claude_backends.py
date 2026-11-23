@@ -13,7 +13,6 @@ import os
 import shutil
 import subprocess
 import tempfile
-from io import BytesIO
 from pathlib import Path
 
 # On a policy decline, the API reruns the request on a suitable model inside the same call.
@@ -61,7 +60,11 @@ class ApiBackend:
 
 
 class CliBackend:
-    """Runs `claude -p` with no tools, no MCP servers and no project settings: a plain structured answer."""
+    """Runs `claude -p` with no MCP servers and no project settings: a plain structured answer.
+
+    Documents are written to a private temporary folder, and Claude may use its Read tool on that folder
+    only. Read sees the pages of a PDF, so scanned documents and newspaper adverts work too.
+    """
 
     def __init__(self, path: str, model: str = ""):
         self.path = path
@@ -77,21 +80,19 @@ class CliBackend:
         return ""
 
     def parse(self, system: str, text: str, schema, effort: str, max_tokens: int, documents=()):
-        prompt = "".join(_document_text(name, data) for name, data in documents) + text
-        command = [
-            self.path, "-p", "--output-format", "json", "--no-session-persistence",
-            "--tools", "", "--strict-mcp-config", "--setting-sources", "", "--effort", effort,
-            "--system-prompt", system, "--json-schema", json.dumps(schema.model_json_schema()), *self._model_flag,
-        ]
-        try:
-            # A neutral folder, so the CLI does not read this project's CLAUDE.md.
-            done = subprocess.run(
-                command, input=prompt, capture_output=True, text=True,
-                timeout=CLI_TIMEOUT_SECONDS, cwd=tempfile.gettempdir(),
-            )
-            reply = json.loads(done.stdout)
-        except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
-            print(f"  ! Claude CLI failed: {error}", flush=True)
+        # A neutral folder as the working directory, so the CLI does not read this project's CLAUDE.md.
+        with tempfile.TemporaryDirectory(prefix="tender-radar-") as folder:
+            paths = _write_documents(Path(folder), documents)
+            tools = ["--tools", "Read", "--allowedTools", f"Read({folder}/**)"] if paths else ["--tools", ""]
+            listing = "".join(f"Document file: {path}\n" for path in paths)
+            prompt = (f"{listing}Read every document file with the Read tool first.\n\n" if paths else "") + text
+            command = [
+                self.path, "-p", "--output-format", "json", "--no-session-persistence", *tools,
+                "--strict-mcp-config", "--setting-sources", "", "--effort", effort,
+                "--system-prompt", system, "--json-schema", json.dumps(schema.model_json_schema()), *self._model_flag,
+            ]
+            reply = self._run(command, prompt, folder)
+        if reply is None:
             return None
         if reply.get("is_error") or reply.get("subtype") != "success":
             print(f"  ! Claude CLI error: {str(reply.get('result'))[:300]}", flush=True)
@@ -102,8 +103,22 @@ class CliBackend:
             print(f"  ! Claude CLI answer did not match the schema: {error}", flush=True)
             return None
 
+    def _run(self, command: list[str], prompt: str, folder: str):
+        try:
+            done = subprocess.run(
+                command, input=prompt, capture_output=True, text=True, timeout=CLI_TIMEOUT_SECONDS, cwd=folder,
+            )
+            return json.loads(done.stdout)
+        except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
+            print(f"  ! Claude CLI failed: {error}", flush=True)
+            return None
+
 
 def _document_block(name: str, data: bytes) -> dict:
+    if name.lower().endswith((".jpg", ".jpeg", ".png")):
+        media_type = "image/png" if name.lower().endswith(".png") else "image/jpeg"
+        return {"type": "image", "source": {"type": "base64", "media_type": media_type,
+                                            "data": base64.standard_b64encode(data).decode("ascii")}}
     if name.lower().endswith(".pdf"):
         encoded = base64.standard_b64encode(data).decode("ascii")
         source = {"type": "base64", "media_type": "application/pdf", "data": encoded}
@@ -112,18 +127,14 @@ def _document_block(name: str, data: bytes) -> dict:
     return {"type": "document", "source": source, "title": name}
 
 
-def _document_text(name: str, data: bytes) -> str:
-    """The CLI takes text only, so PDFs are read here. Scanned PDFs without a text layer come out empty."""
-    if name.lower().endswith(".pdf"):
-        from pypdf import PdfReader
-
-        try:
-            body = "\n".join(page.extract_text() or "" for page in PdfReader(BytesIO(data)).pages)
-        except Exception as error:  # a broken PDF must not lose the analysis
-            body = f"(could not read this PDF: {error})"
-    else:
-        body = data.decode("utf-8", errors="replace")
-    return f'<document name="{name}">\n{body.strip()}\n</document>\n\n'
+def _write_documents(folder: Path, documents) -> list[str]:
+    """Each document as a file in `folder`. Only the base name is kept, so a name cannot point elsewhere."""
+    paths = []
+    for index, (name, data) in enumerate(documents):
+        path = folder / f"{index}-{Path(name).name or 'document'}"
+        path.write_bytes(data)
+        paths.append(str(path))
+    return paths
 
 
 def _strip_fence(text: str) -> str:

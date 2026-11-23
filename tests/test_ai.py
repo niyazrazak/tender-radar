@@ -150,14 +150,19 @@ def test_cli_backend_needs_no_key_and_reads_fits(cli):
     assert "[0] ERP implementation" in sent["stdin"]
 
 
-def test_cli_backend_inlines_text_documents(cli):
+def test_cli_backend_gives_documents_as_readable_files(cli):
     cli("```json\n" + json.dumps({
         "recommendation": "consider", "reasoning": "Maybe.", "summary": "An ERP.", "scope": [], "requirements": [],
         "key_dates": [], "risks": [], "questions": [], "documents_read": True,
     }) + "\n```")
-    analysis = LeadAnalyst(cli.config).analyze(lead("a", "ERP"), [("terms.txt", b"Bond 2 percent")])
+    analysis = LeadAnalyst(cli.config).analyze(lead("a", "ERP"), [("../../etc/terms.txt", b"Bond 2 percent")])
     assert analysis["recommendation"] == "consider"
-    assert '<document name="terms.txt">\nBond 2 percent' in cli.sent()["stdin"]
+    sent = cli.sent()
+    path = sent["stdin"].split("Document file: ")[1].split("\n")[0]
+    assert path.endswith("/0-terms.txt") and "/etc/" not in path  # only the base name is kept
+    folder = path.rsplit("/", 1)[0]
+    assert sent["args"][sent["args"].index("--tools") + 1] == "Read"
+    assert sent["args"][sent["args"].index("--allowedTools") + 1] == f"Read({folder}/**)"
 
 
 def test_cli_error_is_skipped_not_fatal(cli):

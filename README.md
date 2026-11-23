@@ -15,6 +15,7 @@ Collects public tender / RFQ leads from GCC government procurement portals, keep
 | Sidra Medicine | Qatar | RFQs, RFIs and tenders, not on Monaqasat |
 | WOQOD (woqod.com) | Qatar | Open tenders with fee and bond, not on Monaqasat |
 | QAFCO (qafco.qa) | Qatar | RFQs with fee, bond and dates from each RFQ's PDF, not on Monaqasat |
+| Gulf Times newspaper (gulf-times.com/pdfs) | Qatar | Tender adverts printed in the daily paper (e.g. Qatar Foundation, QAPCO), read by Claude from the page images. Needs AI (Claude Code login or API key) |
 | Etimad (tenders.etimad.sa) | Saudi Arabia | Active tenders published in the last week |
 | Oman Tender Board (etendering.tenderboard.gov.om) | Oman | New tenders and tenders with bids opened |
 | CAPT (capt.gov.kw) | Kuwait | Open tenders |
@@ -64,7 +65,7 @@ To use the API instead, put a key in `.env` (copy `.env.example`). With a key se
 - `ai.cli_model`: model for the CLI, for example `opus` or `sonnet`. Empty uses the CLI's default.
 - `ai.claude_path`: where `claude` is, when it is not in `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin`.
 - CLI calls count against your subscription's usage limits. A check screens at most `ai.max_per_run` leads, 10 per call.
-- With the CLI, uploaded PDFs are sent as their text. Scanned PDFs without a text layer give no text.
+- With the CLI, uploaded documents go in a temporary folder that Claude may read, and nothing else. Claude sees PDF pages as images, so scanned PDFs work too.
 
 - **AI fit.** After each check, Claude reads every open tender that hits at least one keyword (`ai.screen_min_score`) and rates the fit with your business from 0 to 10, with a one-line reason. The fit shows next to the keyword score. Sort by **AI fit** to see the best first. A tender with fit `ai.min_fit` (default 6) or more shows up even when its keyword score is low, so tenders written in other words are not missed. Each tender is rated once; at most `ai.max_per_run` (150) a check.
 - **Bid / no-bid.** In a lead's panel, **Analyze tender** asks Claude for a recommendation, scope, requirements, key dates, risks and questions for the buyer. **Upload documents…** adds the tender documents (PDF or text) you bought from the portal, for a full analysis. Documents are kept in `data/documents/`.

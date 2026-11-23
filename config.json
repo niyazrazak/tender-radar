@@ -332,6 +332,12 @@
       "enabled": true,
       "max_pages": 2
     },
+    "gulf_times": {
+      "enabled": true,
+      "sections": ["main", "business"],
+      "days": 2,
+      "delay_seconds": 2
+    },
     "qafco": {
       "enabled": true,
       "max_age_days": 120

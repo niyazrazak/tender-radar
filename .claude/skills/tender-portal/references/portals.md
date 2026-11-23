@@ -322,6 +322,39 @@ you learn something new about a portal (a changed label, a new quirk).
   for each of about 470 tenders (about 9 minutes at a 1-second delay). Daily
   runs fetch details only for new tenders.
 
+## Gulf Times newspaper adverts — Qatar (`sources/gulf_times.py`)
+
+Semi-government bodies and companies advertise tenders in the paper that are on
+no portal (2026-11-22/23: Qatar Foundation CO-RFQ-576..578, QAPCO P05-01-216,
+Qatar Primary Materials AL-AWALIA/TD/2026/43 and /44).
+
+- **Access:** `https://www.gulf-times.com/pdfs` links the daily PDFs as
+  `/gulftimes/uploads/pdf/YYYY/MM/DD/<section>-YYYYMMDD-1-<ts>.pdf?ts=<ts>`
+  (sections main, sport, business). robots.txt allows `/pdfs` and the uploads,
+  with `Crawl-delay: 2` (config `delay_seconds` 2). Main is about 18 MB and 12
+  pages; Business about 4 MB.
+- **No text layer:** pypdf gets no text. The pages are vector outlines, not
+  scans, so rendering them larger adds real detail.
+- **Reading (Claude, `LeadAnalyst.read_adverts`):**
+  1. The whole PDF finds the pages with adverts. Claude scales a page to about
+     1568 px, too small for advert tables: it read `TD` as `T2` or `72`.
+  2. Those pages are cut into four overlapping quarters (`pdf_pages.py`,
+     pypdf + macOS `sips`, JPEG because PNG transparency renders black) and read
+     again for exact numbers, names and dates. Without `sips` (Docker) the
+     first pass is kept.
+  - With the CLI backend, files go in a temporary folder and the Read tool is
+    allowed on that folder only (`Read(<folder>/**)`), so an advert cannot
+    make Claude read other files.
+- **Cost:** about 1 minute and two Claude calls per issue. Each issue is read
+  once and cached in `data/gulf_times/<pdf name>.json`; a failed read is not
+  cached, so it is tried again on the next check.
+- **Ids:** the tender number without spaces, else a hash of buyer and title.
+  An advert printed on several days is one lead.
+- **Empty days are normal:** `may_be_empty` exempts the source from the
+  "0 tenders" warning.
+- **Tests:** `client.read_pdf(url, reader)` downloads and reads in the client,
+  so fixtures record Claude's answer, not the PDF.
+
 ## Candidate portals (not built yet)
 
 Check each one with the steps in SKILL.md before you plan work. These notes
@@ -359,35 +392,10 @@ are starting points, not verified facts.
     construction tenders are reported by MEED.
   - Re-check: if either portal's `NegotiationAbstracts` page starts
     returning rows, copy `sources/sidra.py` with the new URL.
-- **Gulf Times newspaper adverts** — paused 2026-11-23, no OCR engine.
-  Semi-government bodies and companies (e.g. Qatar Primary Materials
-  Company, tenders AWALIA/TD/2026/43 and /44 on 2026-11-23) advertise
-  tenders that are on no portal.
-  - **Access:** `https://www.gulf-times.com/pdfs` lists the daily PDFs as
-    `div.pdf-item` (`.pdf-title` = Main / Sport / Business) linking
-    `/gulftimes/uploads/pdf/YYYY/MM/DD/<section>-YYYYMMDD-1-<ts>.pdf?ts=<ts>`.
-    robots.txt allows `/pdfs` and the uploads, with `Crawl-delay: 2` for all
-    agents. Main is about 18 MB and 12 pages; Business about 4 MB and 3 pages.
-    `/classified` PDFs have a text layer but held only jobs and rentals.
-  - **Adverts are scanned images** with no text layer. Layout: a boxed table
-    (Tender No., Subject, document fee, bond, offer type, closing date), terms
-    below, the buyer's contact block at the bottom. Needs OCR.
-  - **Why paused:** Homebrew has no prebuilt Tesseract for macOS 26 on Intel,
-    and compiling fails because the Command Line Tools are too old. Docker is
-    not installed. The Python OCR packages need onnxruntime or PyTorch, which
-    have no build for Python 3.14 on Intel macOS.
-  - **To resume:**
-    - Update the Command Line Tools, then `brew install tesseract`, or use
-      Claude vision with an API key.
-    - OCR in the client (`get_pdf_ocr`, pdftoppm + tesseract per page), so
-      fixtures record text and CI needs no OCR tools.
-    - Cache OCR per issue under `data/`: one issue a day, but four checks a day.
-    - Make the source exempt from the "0 tenders = failed" alert in
-      `cli.collect`, since a day with no adverts is normal.
-    - Docker needs `tesseract-ocr` and `poppler-utils`.
-  - Al Sharq (advert pages are images), The Peninsula (no tenders seen) and
-    Al Raya (its advert lists sit under `/api/*`, which robots.txt disallows)
-    were also checked and are not worth building.
+- **Other newspapers**: Al Sharq (advert pages are images), The Peninsula (no
+  tenders seen) and Al Raya (its advert lists sit under `/api/*`, which
+  robots.txt disallows) were checked and are not worth building. Al Sharq could
+  reuse the Gulf Times reader if it proves worth it.
 - **QAFAC** (Qatar Fuel Additives, `https://www.qafac.com.qa/tenders/`):
   checked 2026-11-23, not built because it is rarely used. Public WordPress
   page, robots.txt allows all. Internet Archive snapshots: 404 in 2025-07,

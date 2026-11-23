@@ -45,6 +45,11 @@ class PoliteClient:
         reader = PdfReader(BytesIO(self._get(url, **kwargs).content))
         return "\n".join(page.extract_text() or "" for page in reader.pages)
 
+    def read_pdf(self, url: str, reader, **kwargs):
+        """Downloads a PDF and returns `reader(file name, bytes)`. Done here, like get_pdf_text, so test
+        fixtures record what was read from the PDF, not the file (a newspaper issue is about 18 MB)."""
+        return reader(url.split("?")[0].rsplit("/", 1)[-1], self._get(url, **kwargs).content)
+
     def _get(self, url: str, **kwargs) -> requests.Response:
         return self._request("get", url, **kwargs)
 

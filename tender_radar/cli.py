@@ -51,10 +51,13 @@ class TenderRadar:
             try:
                 # A portal that rate-limits gets its own, longer wait between requests.
                 self.client.delay = settings.get("delay_seconds", self.config.get("http", {}).get("delay_seconds", 1.0))
-                found = SOURCES[name](self.client, settings).collect(known)
+                source = SOURCES[name]
+                # A source that reads with Claude (newspaper adverts) gets the analyst; None when AI is off.
+                extra = {"analyst": self.analyst} if getattr(source, "needs_ai", False) else {}
+                found = source(self.client, settings, **extra).collect(known)
                 leads += found
                 sources[name] = {"ok": True, "count": len(found), "error": ""}
-                if not found and previous.get(name):
+                if not found and previous.get(name) and not getattr(source, "may_be_empty", False):
                     # A portal that answers but lists nothing usually changed its page, and the parser broke.
                     sources[name] = {"ok": False, "count": 0, "error": _empty_warning(previous[name])}
             except Exception as error:  # a broken portal must not stop the others

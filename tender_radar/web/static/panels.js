@@ -79,7 +79,7 @@ function facts(lead) {
     ["Category", `<span dir="auto">${esc(lead.category_en || lead.category)}</span>`],
     ["Published", lead.published ? fmtDate(lead.published) : ""],
     ["Closing", lead.closing ? `${fmtDate(lead.closing)}${left !== null && left >= 0 ? ` · ${left} days left` : ""}` : ""],
-    ["Document fee", money(lead.doc_fee)],
+    ["Document fee", esc(fmtFee(lead)) || "Not listed"],
     ["Bid bond", money(lead.bond)],
     ["Winner", `<span dir="auto">${esc((lead.extra?.winners || []).map((w) => w.company).join("; "))}</span>`],
     ["Award value", money(lead.extra?.award_value)],

@@ -41,10 +41,17 @@
         <input id="q" type="search" placeholder="Search title, buyer, keyword…  ( / )" autocomplete="off">
       </label>
       <select id="country"><option value="">All countries</option></select>
+      <select id="fee" title="Tender document fee">
+        <option value="">Any fee</option>
+        <option value="free">Free documents</option>
+        <option value="paid">Paid documents</option>
+        <option value="unlisted">Fee not listed</option>
+      </select>
       <select id="sort">
         <option value="match">Best match</option>
         <option value="closing">Closing soonest</option>
         <option value="newest">Newest first</option>
+        <option value="fee">Lowest fee</option>
       </select>
       <label class="check" title="Show every collected tender, not only keyword matches">
         <input type="checkbox" id="scopeAll"> All tenders

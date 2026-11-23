@@ -57,7 +57,7 @@ class EtimadSource:
             tender_type=row.get("tenderTypeName") or "",
             published=(row.get("submitionDate") or "")[:10],
             closing=(row.get("lastOfferPresentationDate") or "")[:10],
-            doc_fee=str(row.get("condetionalBookletPrice") or ""),
+            doc_fee=_fee(row.get("condetionalBookletPrice")),
             currency="SAR",
             extra={
                 "tender_number": row.get("tenderNumber") or "",
@@ -75,3 +75,8 @@ class EtimadSource:
 
 def _clean(text) -> str:
     return " ".join((text or "").split())
+
+
+def _fee(price) -> str:
+    """Keep 0: it means the tender documents are free, which differs from a missing price."""
+    return "" if price is None else str(price)

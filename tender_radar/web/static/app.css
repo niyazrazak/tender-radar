@@ -149,6 +149,10 @@ select { height: 34px; padding: 0 8px; border: 1px solid var(--line); border-rad
 .badge { font-size: 11px; line-height: 16px; padding: 0 6px; border-radius: 4px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; vertical-align: 2px; margin-right: 6px; }
 .badge.new { background: var(--accent); color: #fff; }
 .badge.state { background: var(--hover); color: var(--ink-2); }
+.lane-fee { width: 104px; flex-shrink: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.lane-fee .amt { font-weight: 550; }
+.lane-fee .free { font-weight: 600; color: var(--good); }
+.lane-fee .cap { font-size: 13px; color: var(--ink-3); }
 .lane-date { width: 112px; flex-shrink: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .lane-date .d { font-weight: 550; }
 .lane-date .left { font-size: 13px; color: var(--ink-3); }
@@ -216,5 +220,5 @@ kbd { font: 11px/16px ui-monospace, Menlo, monospace; border: 1px solid var(--li
   .summary { gap: 24px; flex-wrap: wrap; }
   .search { width: 100%; }
   .filters { flex-wrap: wrap; }
-  .lane-state, .keys, .run-state span:last-child { display: none; }
+  .lane-fee, .lane-state, .keys, .run-state span:last-child { display: none; }
 }

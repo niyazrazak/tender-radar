@@ -30,7 +30,7 @@ class PoliteClient:
         return self._get(url, **kwargs).text
 
     def get_json(self, url: str, **kwargs) -> dict:
-        headers = {"X-Requested-With": "XMLHttpRequest", "Accept": "application/json"}
+        headers = {"X-Requested-With": "XMLHttpRequest", "Accept": "application/json", **kwargs.pop("headers", {})}
         return self._get(url, headers=headers, **kwargs).json()
 
     def _get(self, url: str, **kwargs) -> requests.Response:

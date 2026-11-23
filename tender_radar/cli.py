@@ -68,12 +68,12 @@ class TenderRadar:
                 lead[f"{field}_en"] = self.translator.cached(lead[field])
 
     def translate_all(self) -> int:
-        """Titles and buyers of every stored tender, so 'all tenders' in the dashboard is English too."""
+        """Every readable field of every stored tender, so 'all tenders' in the dashboard is English too."""
         added = 0
-        for field in ("title", "buyer"):
+        for field in TRANSLATED_FIELDS:  # titles first: long briefs are most likely to hit the rate limit
             rows = self.store.db.execute(f"SELECT {field} FROM leads")
             added += self.translator.translate_many(row[0] for row in rows)
-        print(f"Translated {added} new titles and buyer names.", flush=True)
+        print(f"Translated {added} new texts (titles, buyers, categories, activities, briefs).", flush=True)
         return added
 
 

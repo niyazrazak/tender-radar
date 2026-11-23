@@ -35,7 +35,7 @@ const api = {
 class Dashboard {
   constructor() {
     this.leads = [];
-    this.filters = { tab: "active", q: "", country: "", sort: "match", quick: "", scopeAll: false };
+    this.filters = { tab: "active", q: "", country: "", fee: "", sort: "match", quick: "", scopeAll: false };
     this.shown = PAGE_SIZE;
     this.selected = -1;
     this.visible = [];
@@ -103,7 +103,7 @@ class Dashboard {
 
   render() {
     const today = todayISO();
-    const base = this.leads.filter((lead) => this.matchesSearch(lead) && this.matchesCountry(lead));
+    const base = this.leads.filter((lead) => this.matchesSearch(lead) && this.matchesCountry(lead) && this.matchesFee(lead));
     renderSummary(base, today, this.filters.quick);
     renderTabs(base, this.filters.tab);
     this.visible = sortLeads(base.filter((l) => this.matchesTab(l) && this.matchesQuick(l, today)), this.filters.sort);
@@ -126,6 +126,10 @@ class Dashboard {
 
   matchesCountry(lead) {
     return !this.filters.country || lead.country === this.filters.country;
+  }
+
+  matchesFee(lead) {
+    return !this.filters.fee || feeKind(lead) === this.filters.fee;
   }
 
   matchesTab(lead) {
@@ -154,6 +158,7 @@ class Dashboard {
     const refilter = () => { this.shown = PAGE_SIZE; this.selected = -1; this.render(); };
     $("q").addEventListener("input", (e) => { this.filters.q = e.target.value; refilter(); });
     $("country").addEventListener("change", (e) => { this.filters.country = e.target.value; refilter(); });
+    $("fee").addEventListener("change", (e) => { this.filters.fee = e.target.value; refilter(); });
     $("sort").addEventListener("change", (e) => { this.filters.sort = e.target.value; refilter(); });
     $("scopeAll").addEventListener("change", (e) => { this.filters.scopeAll = e.target.checked; this.loadLeads(); });
     $("tabs").addEventListener("click", (e) => {
@@ -264,6 +269,7 @@ function renderList(leads, selected, lang, today) {
           ${lead.ref_no ? `<span class="sep"></span><span>${esc(lead.ref_no)}</span>` : ""}</div>
         ${chips(lead.matched)}
       </div>
+      <div class="lane-fee">${feeLabel(lead)}</div>
       <div class="lane-date">${lead.closing ? `<div class="d">${fmtDate(lead.closing)}</div>${leftLabel(left)}` : '<div class="left">No closing date</div>'}</div>
       <div class="lane-state">${STATE_LABELS[lead.lead_status] ? `<span class="pill ${lead.lead_status}">${STATE_LABELS[lead.lead_status]}</span>` : ""}</div>
     </li>`;
@@ -304,9 +310,46 @@ function sortLeads(leads, sort) {
   const orders = {
     match: (a, b) => b.score - a.score || closing(a).localeCompare(closing(b)),
     closing: (a, b) => closing(a).localeCompare(closing(b)) || b.score - a.score,
+    fee: (a, b) => feeUSD(a) - feeUSD(b) || b.score - a.score,
     newest: (a, b) => b.first_seen.localeCompare(a.first_seen) || b.score - a.score,
   };
   return [...leads].sort(orders[sort]);
+}
+
+/* Fees: "" means the portal did not list one; 0 means the documents are free. */
+
+function feeAmount(text) {
+  if (text === null || text === undefined || String(text).trim() === "") return null;
+  const amount = parseFloat(String(text).replace(/,/g, ""));
+  return isNaN(amount) ? null : amount;
+}
+
+// Gulf currencies are pegged to the US dollar, so fixed rates compare fees across countries exactly.
+const USD_PER = { QAR: 1 / 3.64, SAR: 1 / 3.75, OMR: 1 / 0.3845, AED: 1 / 3.6725, KWD: 3.25, BHD: 1 / 0.376 };
+
+function feeUSD(lead) {
+  const amount = feeAmount(lead.doc_fee);
+  if (amount === null) return Infinity;  // not listed sorts last
+  return amount * (USD_PER[lead.currency] ?? 1);
+}
+
+function feeKind(lead) {
+  const amount = feeAmount(lead.doc_fee);
+  return amount === null ? "unlisted" : amount === 0 ? "free" : "paid";
+}
+
+function fmtFee(lead) {
+  const amount = feeAmount(lead.doc_fee);
+  if (amount === null) return "";
+  if (amount === 0) return "Free";
+  return `${amount.toLocaleString("en-US", { maximumFractionDigits: 3 })} ${lead.currency || ""}`.trim();
+}
+
+function feeLabel(lead) {
+  const kind = feeKind(lead);
+  if (kind === "unlisted") return '<div class="cap">Fee not listed</div>';
+  if (kind === "free") return '<div class="free">Free</div><div class="cap">documents</div>';
+  return `<div class="amt">${esc(fmtFee(lead))}</div><div class="cap">document fee</div>`;
 }
 
 /* Helpers */

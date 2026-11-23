@@ -118,6 +118,30 @@ you learn something new about a portal (a changed label, a new quirk).
 - Mostly medical and research supplies; about 10% IT (RFIs for systems,
   Oracle). Large facilities contracts go to Monaqasat under Qatar Foundation.
 
+## WOQOD — Qatar (`sources/woqod.py`)
+
+- Qatar Fuel. Not on Monaqasat. Page: `/website/en/tenders-and-supplier/all-tenders`
+  (Angular). It reads `GET /fo_api_website/api/Tenders/getAllTenderDetails
+  ?PageSize=50&PageIndex=1&TenderStatus=0` anonymously. `TenderStatus` 0 = open,
+  1 = closed (177 on 2026-11-23), 2 = awarded (always empty).
+- **robots.txt:** the F5 firewall answers "Request Rejected" for `/robots.txt`
+  to every client, a real browser too, so there are no readable rules. The
+  terms (`/website/en/pages/woqodtermsandconditions`) forbid only interfering
+  with or loading the service. The source makes one request per check. A
+  plain `curl` is rejected; the project client works.
+- **Double JSON:** the body is a JSON string holding `{"status", "data":
+  {"totalCount", "pageItems": [...]}}`. Decode it twice.
+- **Item:** `tenderDetailsID` (GUID, stable id), `titleEN`, `tenderNumber`
+  (trailing spaces), `fee`, `tenderBond`, `isPaid`, `startingDate`,
+  `closingDate` (`2026-11-24T00:00:00`, Qatar date), `pageURL` (append to
+  `/website/en`), `isCanceled`. `scopeOfWorkEN` and `descriptionEN` are
+  usually null.
+- **`detailsEN` is the same bid instructions on every tender** ("obtain the
+  document on the website / portal"). Do not score it: "website" and
+  "portal" then match every tender. It is kept in `extra.instructions`.
+- `fee` 0 with `isPaid` false means free documents (often "send CR and a
+  letter of interest by email"). `tenderBond` 0 means none stated.
+
 ## Etimad — Saudi Arabia (`sources/etimad.py`)
 
 - Owner: Ministry of Finance, Saudi Arabia. Base: `https://tenders.etimad.sa`.

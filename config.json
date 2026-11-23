@@ -325,6 +325,10 @@
     "sidra": {
       "enabled": true
     },
+    "woqod": {
+      "enabled": true,
+      "max_pages": 2
+    },
     "kuwait_capt": {
       "enabled": true,
       "max_pages": 10

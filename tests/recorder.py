@@ -22,6 +22,7 @@ RECORD_SETTINGS = {
     "mwani": {"max_items": 20},
     "qfa": {"max_pages": 2},
     "sidra": {},
+    "woqod": {"max_pages": 1},
     "etimad": {"max_pages": 1, "publish_window": "week"},
     "oman_tender_board": {"max_pages": 1, "in_process_pages": 1},
     "kuwait_capt": {"max_pages": 2},

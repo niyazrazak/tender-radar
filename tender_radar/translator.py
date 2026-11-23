@@ -4,8 +4,12 @@ import time
 import requests
 
 ARABIC = re.compile(r"[؀-ۿ]")
-# Google's free web endpoint: no API key needed. Tender titles are public data.
-ENDPOINT = "https://translate.googleapis.com/translate_a/single"
+# Google's free endpoint used by its Chrome extension: no API key, many texts per request,
+# one result per text. Tender titles are public data.
+ENDPOINT = "https://clients5.google.com/translate_a/t"
+PARAMS = {"client": "dict-chrome-ex", "sl": "auto", "tl": "en"}
+BATCH_TEXTS = 40
+BATCH_CHARS = 4000
 
 
 class Translator:
@@ -19,16 +23,20 @@ class Translator:
 
     def english(self, text: str) -> str:
         """English version of text; text unchanged if it has no Arabic or translation fails."""
-        if not text or not ARABIC.search(text):
-            return text or ""
-        row = self.db.execute("SELECT english FROM translations WHERE source = ?", (text,)).fetchone()
-        if row:
-            return row[0]
-        english = "" if self.blocked else self._fetch(text)
-        if english:
-            self.db.execute("INSERT OR REPLACE INTO translations VALUES (?, ?)", (text, english))
+        self.translate_many([text])
+        return self.cached(text)
+
+    def translate_many(self, texts) -> int:
+        """Translates every uncached Arabic text, in batches. Returns how many were added to the cache."""
+        added = 0
+        for batch in _batches(self._uncached(texts)):
+            if self.blocked:
+                break
+            pairs = [(src, en) for src, en in zip(batch, self._fetch(batch)) if en]
+            self.db.executemany("INSERT OR REPLACE INTO translations VALUES (?, ?)", pairs)
             self.db.commit()
-        return english or text
+            added += len(pairs)
+        return added
 
     def cached(self, text: str) -> str:
         """English from the cache only, never the network: for the dashboard, which must answer fast."""
@@ -37,19 +45,41 @@ class Translator:
         row = self.db.execute("SELECT english FROM translations WHERE source = ?", (text,)).fetchone()
         return row[0] if row else text
 
-    def _fetch(self, text: str) -> str:
+    def _uncached(self, texts) -> list[str]:
+        wanted = {t for t in texts if t and ARABIC.search(t)}
+        if not wanted:
+            return []
+        done = {row[0] for row in self.db.execute("SELECT source FROM translations")}
+        return sorted(wanted - done)
+
+    def _fetch(self, batch: list[str]) -> list[str]:
+        """One English string per input text; empty strings when the request fails."""
         time.sleep(self.delay)
         try:
-            # POST, because a long brief does not fit in a URL.
-            response = requests.post(
-                ENDPOINT, params={"client": "gtx", "sl": "auto", "tl": "en", "dt": "t"}, data={"q": text}, timeout=20
-            )
+            response = requests.post(ENDPOINT, params=PARAMS, data=[("q", t) for t in batch], timeout=30)
             if response.status_code == 429:
                 self.blocked = True
                 print("  ! translation rate-limited by Google; the rest will be translated on the next run")
-                return ""
+                return [""] * len(batch)
             response.raise_for_status()
-            return "".join(part[0] for part in response.json()[0] if part[0]).strip()
+            return [_text_of(item) for item in response.json()]
         except (requests.RequestException, ValueError, IndexError, TypeError) as error:
             print(f"  ! translation failed: {error}")
-            return ""
+            return [""] * len(batch)
+
+
+def _text_of(item) -> str:
+    # A batch answers [[english, lang], ...]; a single text may answer just "english".
+    return (item[0] if isinstance(item, list) else item or "").strip()
+
+
+def _batches(texts: list[str]):
+    batch, size = [], 0
+    for text in texts:
+        if batch and (len(batch) >= BATCH_TEXTS or size + len(text) > BATCH_CHARS):
+            yield batch
+            batch, size = [], 0
+        batch.append(text)
+        size += len(text)
+    if batch:
+        yield batch

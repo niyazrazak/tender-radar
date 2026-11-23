@@ -63,8 +63,18 @@ class TenderRadar:
         """Adds <field>_en for the Arabic fields people read. Cached, so only new text is translated."""
         # Field by field, so titles are done before long briefs use up the rate limit.
         for field in TRANSLATED_FIELDS:
+            self.translator.translate_many(lead[field] for lead in leads)
             for lead in leads:
-                lead[f"{field}_en"] = self.translator.english(lead[field])
+                lead[f"{field}_en"] = self.translator.cached(lead[field])
+
+    def translate_all(self) -> int:
+        """Titles and buyers of every stored tender, so 'all tenders' in the dashboard is English too."""
+        added = 0
+        for field in ("title", "buyer"):
+            rows = self.store.db.execute(f"SELECT {field} FROM leads")
+            added += self.translator.translate_many(row[0] for row in rows)
+        print(f"Translated {added} new titles and buyer names.", flush=True)
+        return added
 
 
 def main():
@@ -83,6 +93,8 @@ def main():
         leads = radar.report(min_score, args.days, new_keys)
         if args.json:
             print(json.dumps(leads, ensure_ascii=False, indent=1))
+    if args.command in ("run", "translate"):
+        radar.translate_all()
 
 
 def _serve(config_path: Path):
@@ -107,7 +119,7 @@ SERVICE_COMMANDS = {
 
 def _parse_args():
     parser = argparse.ArgumentParser(prog="tender_radar", description="Collect tender/RFQ leads.")
-    commands = ["run", "collect", "report", "rescore", *SERVICE_COMMANDS]
+    commands = ["run", "collect", "report", "rescore", "translate", *SERVICE_COMMANDS]
     parser.add_argument("command", choices=commands, nargs="?", default="run")
     parser.add_argument("--config", default=str(ROOT / "config.json"))
     parser.add_argument("--sources", help="Comma list, e.g. monaqasat,etimad")

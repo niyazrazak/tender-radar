@@ -73,6 +73,7 @@ class Scheduler:
             result = radar.collect([])
             leads = radar.report(radar.config.get("min_score", 3), 0, result["new_keys"])
             new_leads = [lead for lead in leads if lead["key"] in result["new_keys"]]
+            radar.translate_all()
         except Exception as exc:
             traceback.print_exc()
             error = str(exc)[:500]

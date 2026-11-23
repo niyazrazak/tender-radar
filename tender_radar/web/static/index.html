@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tender Radar</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%232f54eb' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%232f54eb'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="12.5" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="16" cy="16" r="6.5" fill="none" stroke="currentColor" stroke-width="2" opacity=".45"/><path d="M16 16 L26 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="16" cy="16" r="2.6" fill="currentColor"/></svg>
+      <div>
+        <h1>Tender Radar</h1>
+        <div class="company" id="company"></div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="run-state" id="runState" aria-haspopup="true" title="Recent checks">
+        <span class="dot" id="runDot"></span><span id="runText">Connecting…</span>
+      </button>
+      <a class="btn ghost" href="/api/export" title="Download the latest Excel report">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10m0 0-4-4m4 4 4-4M4 16h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Excel
+      </a>
+      <button class="btn primary" id="runNow">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5V7h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Check now
+      </button>
+    </div>
+    <div class="activity" id="activity" hidden></div>
+  </header>
+
+  <section class="summary" id="summary"></section>
+
+  <section class="toolbar">
+    <nav class="tabs" id="tabs"></nav>
+    <div class="filters">
+      <label class="search">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m13.5 13.5 3 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        <input id="q" type="search" placeholder="Search title, buyer, keyword…  ( / )" autocomplete="off">
+      </label>
+      <select id="country"><option value="">All countries</option></select>
+      <select id="sort">
+        <option value="match">Best match</option>
+        <option value="closing">Closing soonest</option>
+        <option value="newest">Newest first</option>
+      </select>
+      <label class="check" title="Show every collected tender, not only keyword matches">
+        <input type="checkbox" id="scopeAll"> All tenders
+      </label>
+    </div>
+  </section>
+
+  <div class="quick" id="quick" hidden></div>
+
+  <main>
+    <ol class="list" id="list"></ol>
+    <div class="empty" id="empty" hidden></div>
+    <button class="more" id="more" hidden></button>
+  </main>
+
+  <footer class="keys">
+    <span><kbd>j</kbd><kbd>k</kbd> move</span><span><kbd>↵</kbd> open</span>
+    <span><kbd>s</kbd> shortlist</span><span><kbd>b</kbd> bidding</span><span><kbd>d</kbd> dismiss</span>
+    <span><kbd>u</kbd> back to inbox</span><span><kbd>/</kbd> search</span>
+  </footer>
+</div>
+
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+<div class="scrim" id="scrim"></div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<div class="tweaks" id="tweaks">
+  <button class="tweaks-toggle" id="tweaksToggle" aria-label="Display settings">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h7m4 0h1M4 14h1m4 0h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="13" cy="6" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="7" cy="14" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+  </button>
+  <div class="tweaks-panel" id="tweaksPanel" hidden></div>
+</div>
+
+<script src="app.js"></script>
+<script src="panels.js"></script>
+</body>
+</html>

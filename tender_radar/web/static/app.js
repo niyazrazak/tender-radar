@@ -3,16 +3,26 @@
 const PAGE_SIZE = 120;
 const POLL_MS = 10000;
 const TABS = [
-  ["active", "Active"], ["new", "Inbox"], ["shortlisted", "Shortlisted"],
+  ["active", "All active"], ["new", "Inbox"], ["shortlisted", "Shortlisted"],
   ["bidding", "Bidding"], ["dismissed", "Dismissed"],
 ];
+// 20px line icons for the sidebar views.
+const TAB_ICONS = {
+  active: '<path d="M4 6h12M4 10h12M4 14h8" stroke-linecap="round"/>',
+  new: '<path d="M3.5 11 6 4.5h8l2.5 6.5v4.5h-13zM3.5 11h4l1 2h3l1-2h4" stroke-linejoin="round"/>',
+  shortlisted: '<path d="m10 3.5 2 4.2 4.5.6-3.3 3.1.8 4.5L10 13.7l-4 2.2.8-4.5-3.3-3.1 4.5-.6z" stroke-linejoin="round"/>',
+  bidding: '<path d="M5 3.5h7l3 3v10H5zM8 10h4M8 13h4" stroke-linejoin="round" stroke-linecap="round"/>',
+  dismissed: '<path d="M4 6h12M8 6V4h4v2M6 6l.7 10h6.6L14 6" stroke-linejoin="round" stroke-linecap="round"/>',
+};
 const STATE_LABELS = { new: "", shortlisted: "Shortlisted", bidding: "Bidding", dismissed: "Dismissed" };
 const SOURCE_LABELS = {
   monaqasat: "Monaqasat", mwani: "Mwani Qatar", qfa: "Qatar Football Association", etimad: "Etimad",
+  sidra: "Sidra Medicine", woqod: "WOQOD", qafco: "QAFCO",
   oman_tender_board: "Oman Tender Board", kuwait_capt: "Kuwait CAPT", bahrain_tender_board: "Bahrain Tender Board",
 };
 const TWEAKS = {
   density: { label: "Density", options: [["relaxed", "Relaxed"], ["compact", "Compact"]] },
+  keywords: { label: "Keywords", options: [["hide", "Hide"], ["show", "Show"]] },
   lang: { label: "Titles", options: [["en", "English"], ["orig", "Original"]] },
   theme: { label: "Theme", options: [["light", "Light"], ["dark", "Dark"]] },
 };
@@ -45,7 +55,8 @@ class Dashboard {
     this.selected = -1;
     this.visible = [];
     this.lastRunId = null;
-    this.prefs = { density: "relaxed", lang: "en", theme: "light", ...JSON.parse(localStorage.prefs || "{}") };
+    const theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    this.prefs = { density: "relaxed", keywords: "hide", lang: "en", theme, ...JSON.parse(localStorage.prefs || "{}") };
   }
 
   async start() {
@@ -136,7 +147,9 @@ class Dashboard {
     this.visible = sortLeads(base.filter((l) => this.matchesTab(l) && this.matchesQuick(l, today)), this.filters.sort);
     this.selected = Math.min(this.selected, this.visible.length - 1);
     renderList(this.visible.slice(0, this.shown), this.selected, this.prefs.lang, today);
-    renderQuick(this.filters.quick);
+    renderQuick(this.filters.quick, this.visible.length);
+    const f = this.filters;
+    $("clearFilters").hidden = !(f.country || f.fee || f.bond || f.size || f.q || f.quick);
     renderEmpty(this.visible.length === 0, this.leads.length === 0);
     const rest = this.visible.length - this.shown;
     $("more").hidden = rest <= 0;
@@ -226,6 +239,11 @@ class Dashboard {
       refilter();
     });
     $("quick").addEventListener("click", (e) => { if (e.target.closest("button")) { this.filters.quick = ""; refilter(); } });
+    $("clearFilters").addEventListener("click", () => {
+      Object.assign(this.filters, { country: "", fee: "", bond: "", size: "", q: "", quick: "" });
+      for (const id of ["country", "fee", "bond", "size", "q"]) $(id).value = "";
+      refilter();
+    });
     $("list").addEventListener("click", (e) => {
       const row = e.target.closest("[data-i]");
       if (row) this.open(Number(row.dataset.i));
@@ -280,6 +298,7 @@ class Dashboard {
 
   applyPrefs() {
     document.documentElement.dataset.density = this.prefs.density;
+    document.documentElement.dataset.keywords = this.prefs.keywords;
     document.documentElement.dataset.theme = this.prefs.theme;
     localStorage.prefs = JSON.stringify(this.prefs);
   }
@@ -304,32 +323,61 @@ function renderSummary(leads, today, quick) {
 function renderTabs(leads, current) {
   $("tabs").innerHTML = TABS.map(([key, label]) => {
     const n = leads.filter((l) => (key === "active" ? l.lead_status !== "dismissed" : l.lead_status === key)).length;
-    return `<button class="tab ${key === current ? "on" : ""}" data-tab="${key}">${label}<span class="n">${n}</span></button>`;
+    const icon = `<svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">${TAB_ICONS[key]}</svg>`;
+    return `<button class="tab ${key === current ? "on" : ""}" data-tab="${key}">${icon}<span>${label}</span><span class="n">${n || ""}</span></button>`;
   }).join("");
 }
 
 function renderList(leads, selected, lang, today) {
   $("list").innerHTML = leads.map((lead, i) => {
     const title = lang === "orig" ? lead.title : lead.title_en || lead.title;
-    const left = daysLeft(lead.closing, today);
     const isNew = lead.first_seen >= daysAgoISO(1);
     const status = lead.status !== "open" ? `<span class="badge state">${esc(lead.status)}</span>` : "";
     return `<li class="row ${i === selected ? "sel" : ""}" data-i="${i}">
-      <div class="lane-score">${fitBadge(lead)}<span class="score ${lead.score >= 6 ? "high" : ""}" title="Keyword score">${lead.score}</span></div>
+      <div class="lane-score">${matchBadge(lead)}</div>
       <div class="lane-main">
-        <div class="title" dir="auto">${isNew ? '<span class="badge new">New</span>' : ""}${status}${smallBadges(lead)}${esc(title)}</div>
-        <div class="meta"><span dir="auto">${esc(lead.buyer_en || lead.buyer || "Unknown buyer")}</span>
+        <div class="title" dir="auto">${status}${smallBadges(lead)}${esc(title)}</div>
+        <div class="meta">${STATE_LABELS[lead.lead_status] ? `<span class="pill ${lead.lead_status}">${STATE_LABELS[lead.lead_status]}</span>` : ""}
+          <span dir="auto">${esc(lead.buyer_en || lead.buyer || "Unknown buyer")}</span>
           <span class="sep"></span><span>${esc(lead.country)}</span>
-          ${lead.ref_no ? `<span class="sep"></span><span>${esc(lead.ref_no)}</span>` : ""}
-          ${bondKind(lead) !== "unlisted" ? `<span class="sep"></span><span>Bond ${esc(fmtBond(lead))}</span>` : ""}</div>
-        ${lead.ai_reason ? `<div class="reason">${esc(lead.ai_reason)}</div>` : chips(lead.matched)}
+          ${lead.ref_no ? `<span class="sep"></span><span class="ref">${esc(lead.ref_no)}</span>` : ""}
+          ${lead.owner ? `<span class="sep"></span><span title="Owner">Owner: ${esc(lead.owner)}</span>` : ""}
+          ${isNew ? '<span class="sep"></span><span class="new-label">New today</span>' : ""}</div>
+        ${lead.ai_reason ? `<div class="reason">${esc(lead.ai_reason)}</div>` : ""}
+        ${chips(lead.matched)}
       </div>
-      <div class="lane-fee">${feeLabel(lead)}</div>
-      <div class="lane-date">${lead.closing ? `<div class="d">${fmtDate(lead.closing)}</div>${leftLabel(left)}` : '<div class="left">No closing date</div>'}</div>
-      <div class="lane-state">${STATE_LABELS[lead.lead_status] ? `<span class="pill ${lead.lead_status}">${STATE_LABELS[lead.lead_status]}</span>` : ""}
-        ${lead.owner ? `<div class="owner" title="Owner">${esc(lead.owner)}</div>` : ""}</div>
+      <div class="lane-money">${moneyLines(lead)}</div>
+      <div class="lane-date">${deadline(lead, today)}</div>
     </li>`;
   }).join("");
+}
+
+/** One number per row: Claude's fit when it has rated the lead, else the keyword score. */
+function matchBadge(lead) {
+  if (lead.ai_fit !== null && lead.ai_fit !== undefined) {
+    const level = lead.ai_fit >= 7 ? "high" : lead.ai_fit >= 4 ? "mid" : "low";
+    return `<span class="match ${level}" title="AI fit ${lead.ai_fit}/10 · keyword score ${lead.score}">
+      <b>${lead.ai_fit}</b><small>fit</small></span>`;
+  }
+  return `<span class="match kw ${lead.score >= 6 ? "high" : ""}" title="Keyword score">
+    <b>${lead.score}</b><small>score</small></span>`;
+}
+
+function moneyLines(lead) {
+  const fee = feeKind(lead);
+  const feeText = fee === "unlisted" ? '<span class="na">not listed</span>'
+    : fee === "free" ? '<span class="free">Free</span>' : esc(fmtFee(lead));
+  const bond = bondKind(lead) === "unlisted" ? '<span class="na">not listed</span>' : esc(fmtBond(lead).replace(" of bid value", " of bid"));
+  return `<div><span class="k">Fee</span>${feeText}</div><div><span class="k">Bond</span>${bond}</div>`;
+}
+
+/** Days left leads, because that is what decides whether to act today. */
+function deadline(lead, today) {
+  if (!lead.closing) return '<div class="when na">No closing date</div>';
+  const days = daysLeft(lead.closing, today);
+  const cls = days < 0 ? "past" : days <= 3 ? "urgent" : days <= 7 ? "soon" : "";
+  const text = days < 0 ? "Closed" : days === 0 ? "Today" : `${days} day${days === 1 ? "" : "s"}`;
+  return `<div class="when ${cls}">${text}</div><div class="d">${fmtDate(lead.closing)}</div>`;
 }
 
 /** AI fit 0-10, shown only once Claude has rated the lead. */
@@ -339,17 +387,17 @@ function fitBadge(lead) {
   return `<span class="fit ${level}" title="AI fit ${lead.ai_fit}/10: ${esc(lead.ai_reason)}">${lead.ai_fit}</span>`;
 }
 
-function renderQuick(quick) {
-  const labels = { fresh: "first seen in the last 7 days", closing: "closing within 7 days", open: "open or upcoming" };
-  $("quick").hidden = !labels[quick];
-  $("quick").innerHTML = `Showing leads ${labels[quick] || ""} <button>Clear</button>`;
+function renderQuick(quick, count) {
+  const labels = { fresh: "First seen in the last 7 days", closing: "Closing within 7 days", open: "Open or upcoming" };
+  const chip = labels[quick] ? `<span class="filter-chip">${labels[quick]}<button aria-label="Clear">×</button></span>` : "";
+  $("quick").innerHTML = `<b>${count.toLocaleString("en-US")}</b> ${count === 1 ? "lead" : "leads"} ${chip}`;
 }
 
 function renderEmpty(empty, noData) {
   $("empty").hidden = !empty;
   $("empty").innerHTML = noData
     ? "<b>No leads yet</b>Press “Check now” to collect tenders from the portals. The first check takes about 10 minutes."
-    : "<b>Nothing matches</b>Try another tab, clear the search, or tick “All tenders”.";
+    : "<b>Nothing matches</b>Try another view, clear the filters, or include non-matching tenders.";
 }
 
 function chips(matched) {
@@ -358,14 +406,6 @@ function chips(matched) {
   const words = hits.split(", ").filter(Boolean).slice(0, 6).map((w) => `<span class="chip" dir="auto">${esc(w)}</span>`);
   const negative = excluded.split(", ").filter(Boolean).map((w) => `<span class="chip neg" dir="auto">− ${esc(w)}</span>`);
   return `<div class="chips">${words.join("")}${negative.join("")}</div>`;
-}
-
-function leftLabel(days) {
-  if (days === null) return "";
-  if (days < 0) return `<div class="left">Closed</div>`;
-  if (days === 0) return `<div class="left urgent">Closes today</div>`;
-  const cls = days <= 3 ? "urgent" : days <= 7 ? "soon" : "";
-  return `<div class="left ${cls}">${days} day${days === 1 ? "" : "s"} left</div>`;
 }
 
 function sortLeads(leads, sort) {
@@ -466,13 +506,6 @@ function fmtFee(lead) {
   if (amount === null) return "";
   if (amount === 0) return "Free";
   return fmtMoney(amount, lead.currency);
-}
-
-function feeLabel(lead) {
-  const kind = feeKind(lead);
-  if (kind === "unlisted") return '<div class="cap">Fee not listed</div>';
-  if (kind === "free") return '<div class="free">Free</div><div class="cap">documents</div>';
-  return `<div class="amt">${esc(fmtFee(lead))}</div><div class="cap">document fee</div>`;
 }
 
 /* Helpers */

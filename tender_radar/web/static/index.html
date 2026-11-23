@@ -3,99 +3,114 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- The page has its own dark theme; dark-mode extensions would repaint it badly. -->
+<meta name="darkreader-lock">
+<meta name="color-scheme" content="light dark">
 <title>Tender Radar</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%232f54eb' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%232f54eb'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
-<div class="app">
-  <header class="top">
+<div class="shell">
+  <aside class="side">
     <div class="brand">
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="12.5" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="16" cy="16" r="6.5" fill="none" stroke="currentColor" stroke-width="2" opacity=".45"/><path d="M16 16 L26 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="16" cy="16" r="2.6" fill="currentColor"/></svg>
-      <div>
-        <h1>Tender Radar</h1>
-        <div class="company" id="company"></div>
-      </div>
+      <h1>Tender Radar</h1>
     </div>
-    <div class="top-actions">
-      <button class="run-state" id="runState" aria-haspopup="true" title="Recent checks">
-        <span class="dot" id="runDot"></span><span id="runText">Connecting…</span>
-      </button>
-      <button class="btn ghost" id="marketBtn" title="Who wins tenders like yours ( m )">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 16V9m4 7V5m4 11v-5m4 5V7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Market
-      </button>
-      <a class="btn ghost" href="/api/export" title="Download the latest Excel report">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10m0 0-4-4m4 4 4-4M4 16h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Excel
-      </a>
-      <button class="btn primary" id="runNow">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5V7h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Check now
-      </button>
+
+    <nav class="tabs" id="tabs" aria-label="Views"></nav>
+
+    <div class="side-filters">
+      <div class="side-head">Filters <button class="link" id="clearFilters" hidden>Clear</button></div>
+      <label class="field"><span>Country</span>
+        <select id="country"><option value="">All countries</option></select></label>
+      <label class="field"><span>Document fee</span>
+        <select id="fee" title="Tender document fee">
+          <option value="">Any fee</option>
+          <option value="free">Free documents</option>
+          <option value="paid">Paid documents</option>
+          <option value="unlisted">Fee not listed</option>
+        </select></label>
+      <label class="field"><span>Bid bond</span>
+        <select id="bond" title="Bid bond (bank guarantee). Amounts compared in US dollars.">
+          <option value="">Any bid bond</option>
+          <option value="none">No bond required</option>
+          <option value="upto5k">Up to $5,000</option>
+          <option value="upto25k">Up to $25,000</option>
+          <option value="upto100k">Up to $100,000</option>
+          <option value="over100k">Over $100,000</option>
+          <option value="percent">% of bid value</option>
+          <option value="unlisted">Not listed</option>
+        </select></label>
+      <label class="field"><span>Company size</span>
+        <select id="size" title="Tenders a small company can bid on without much money up front">
+          <option value="">Any company size</option>
+          <option value="small">Fits a small company</option>
+          <option value="sme">Reserved for SMEs</option>
+          <option value="smallvalue">Small-value purchase</option>
+          <option value="cheap">Low up-front cost</option>
+          <option value="awarded">Just awarded: pitch the winner</option>
+          <option value="freelancer">Open to freelancers</option>
+        </select></label>
+      <label class="check" title="Show every collected tender, not only keyword matches">
+        <input type="checkbox" id="scopeAll"> Include non-matching tenders
+      </label>
     </div>
-    <div class="activity" id="activity" hidden></div>
-  </header>
 
-  <section class="summary" id="summary"></section>
+    <div class="company" id="company"></div>
+  </aside>
 
-  <section class="toolbar">
-    <nav class="tabs" id="tabs"></nav>
-    <div class="filters">
+  <div class="app">
+    <header class="top">
       <label class="search">
         <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="m13.5 13.5 3 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-        <input id="q" type="search" placeholder="Search title, buyer, keyword…  ( / )" autocomplete="off">
+        <input id="q" type="search" placeholder="Search title, buyer, reference, notes" autocomplete="off">
+        <kbd>/</kbd>
       </label>
-      <select id="country"><option value="">All countries</option></select>
-      <select id="fee" title="Tender document fee">
-        <option value="">Any fee</option>
-        <option value="free">Free documents</option>
-        <option value="paid">Paid documents</option>
-        <option value="unlisted">Fee not listed</option>
-      </select>
-      <select id="bond" title="Bid bond (bank guarantee). Amounts compared in US dollars.">
-        <option value="">Any bid bond</option>
-        <option value="none">No bond required</option>
-        <option value="upto5k">Bond up to $5,000</option>
-        <option value="upto25k">Bond up to $25,000</option>
-        <option value="upto100k">Bond up to $100,000</option>
-        <option value="over100k">Bond over $100,000</option>
-        <option value="percent">Bond as % of bid</option>
-        <option value="unlisted">Bond not listed</option>
-      </select>
-      <select id="size" title="Tenders a small company can bid on without much money up front">
-        <option value="">Any company size</option>
-        <option value="small">Fits a small company</option>
-        <option value="sme">Reserved for SMEs</option>
-        <option value="smallvalue">Small-value purchase</option>
-        <option value="cheap">Low up-front cost</option>
-        <option value="awarded">Just awarded: pitch the winner</option>
-        <option value="freelancer">Open to freelancers</option>
-      </select>
-      <select id="sort">
-        <option value="match">Best match</option>
-        <option value="fit">AI fit</option>
-        <option value="closing">Closing soonest</option>
-        <option value="newest">Newest first</option>
-        <option value="fee">Lowest fee</option>
-        <option value="upfront">Lowest up-front cost</option>
-      </select>
-      <label class="check" title="Show every collected tender, not only keyword matches">
-        <input type="checkbox" id="scopeAll"> All tenders
-      </label>
+      <div class="top-actions">
+        <button class="run-state" id="runState" aria-haspopup="true" title="Recent checks">
+          <span class="dot" id="runDot"></span><span id="runText">Connecting…</span>
+        </button>
+        <button class="btn ghost" id="marketBtn" title="Who wins tenders like yours ( m )">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 16V9m4 7V5m4 11v-5m4 5V7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Market
+        </button>
+        <a class="btn ghost" href="/api/export" title="Download the latest Excel report">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10m0 0-4-4m4 4 4-4M4 16h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Excel
+        </a>
+        <button class="btn primary" id="runNow">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5V7h-3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Check now
+        </button>
+      </div>
+      <div class="activity" id="activity" hidden></div>
+    </header>
+
+    <section class="summary" id="summary"></section>
+
+    <div class="list-head">
+      <div class="quick" id="quick"></div>
+      <label class="sort">Sort
+        <select id="sort">
+          <option value="match">Best match</option>
+          <option value="fit">AI fit</option>
+          <option value="closing">Closing soonest</option>
+          <option value="newest">Newest first</option>
+          <option value="fee">Lowest fee</option>
+          <option value="upfront">Lowest up-front cost</option>
+        </select></label>
     </div>
-  </section>
 
-  <div class="quick" id="quick" hidden></div>
+    <main>
+      <ol class="list" id="list"></ol>
+      <div class="empty" id="empty" hidden></div>
+      <button class="more" id="more" hidden></button>
+    </main>
 
-  <main>
-    <ol class="list" id="list"></ol>
-    <div class="empty" id="empty" hidden></div>
-    <button class="more" id="more" hidden></button>
-  </main>
-
-  <footer class="keys">
-    <span><kbd>j</kbd><kbd>k</kbd> move</span><span><kbd>↵</kbd> open</span>
-    <span><kbd>s</kbd> shortlist</span><span><kbd>b</kbd> bidding</span><span><kbd>d</kbd> dismiss</span>
-    <span><kbd>u</kbd> back to inbox</span><span><kbd>/</kbd> search</span><span><kbd>m</kbd> market</span>
-  </footer>
+    <footer class="keys">
+      <span><kbd>j</kbd><kbd>k</kbd> move</span><span><kbd>↵</kbd> open</span>
+      <span><kbd>s</kbd> shortlist</span><span><kbd>b</kbd> bidding</span><span><kbd>d</kbd> dismiss</span>
+      <span><kbd>u</kbd> back to inbox</span><span><kbd>/</kbd> search</span><span><kbd>m</kbd> market</span>
+    </footer>
+  </div>
 </div>
 
 <aside class="drawer" id="drawer" aria-hidden="true">

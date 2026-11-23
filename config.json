@@ -356,6 +356,7 @@
   },
   "ai": {
     "enabled": true,
+    "cli_model": "opus",
     "min_fit": 6,
     "screen_min_score": 1,
     "max_per_run": 150,

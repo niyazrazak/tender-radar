@@ -73,6 +73,15 @@ To use the API instead, put a key in `.env` (copy `.env.example`). With a key se
 - Company profile: `company` in `config.json`. Claude rates against it, so describe what you sell.
 - API model: `claude-opus-5-5` (`ai.model`). Without a key or a logged-in CLI, everything else works and the AI parts stay off.
 
+## Company profile
+
+**Company** in the header (or `c`) opens your company profile: name, CR number, contact, services, sectors, certifications, clients, and an email signature.
+
+- **Upload documents…** adds your company profile PDF, CR copy, trade license and certificates. They are kept in `data/company/documents/`; the details are in `data/company/profile.json`.
+- **Fill from documents** asks Claude to read the PDFs and images and fill the empty fields. Check them, then **Save profile**.
+- Claude rates and analyzes tenders against the saved profile. Until it has content, it uses `company` in `config.json`. Tenders already rated keep their rating.
+- **Attach** marks the documents to send with introduction emails to buyers and partners (planned).
+
 ## Alerts by email and Telegram
 
 Set up a channel in `config.json` -> `alerts`, and its secret in `.env`:

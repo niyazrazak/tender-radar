@@ -343,3 +343,18 @@ label.btn { cursor: pointer; }
 
 /* Original (Arabic) name under its English translation */
 .orig { color: var(--ink-3); font-size: 12px; line-height: 17px; font-weight: 400; }
+
+/* Company profile */
+button.company { background: none; border: 0; text-align: left; cursor: pointer; border-radius: 6px; padding: 6px 8px; margin-left: 0; }
+button.company:hover { background: var(--hover); color: var(--ink-2); }
+.profile { max-width: 860px; }
+.profile-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
+.profile-grid label { display: flex; flex-direction: column; gap: 4px; color: var(--ink-3); font-size: 13px; }
+.profile-grid label.wide { grid-column: 1 / -1; }
+.profile-grid label .cap { font-size: 12px; }
+.profile input, .profile textarea, .profile select { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 6px 8px; color: var(--ink); font: inherit; }
+.profile textarea { resize: vertical; line-height: 21px; }
+.profile .grid select { padding: 3px 6px; }
+.profile .check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
+.profile form .analyze-controls { margin-top: 24px; }
+@media (max-width: 860px) { .profile-grid { grid-template-columns: 1fr; } }

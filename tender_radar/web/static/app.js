@@ -269,6 +269,8 @@ class Dashboard {
     $("more").addEventListener("click", () => { this.shown += PAGE_SIZE; this.render(); });
     $("runNow").addEventListener("click", () => runPanel.runNow());
     $("marketBtn").addEventListener("click", () => market.toggle());
+    $("companyBtn").addEventListener("click", () => company.toggle());
+    $("company").addEventListener("click", () => company.toggle());
     $("runState").addEventListener("click", (e) => { e.stopPropagation(); runPanel.toggle(); });
     document.addEventListener("click", (e) => { if (!e.target.closest("#activity")) runPanel.close(); });
     tweaks.bind(this);
@@ -277,7 +279,7 @@ class Dashboard {
   bindKeys() {
     document.addEventListener("keydown", (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.target.matches("input, select")) {
+      if (e.target.matches("input, select, textarea")) {
         if (e.key === "Escape") e.target.blur();
         return;
       }
@@ -287,8 +289,9 @@ class Dashboard {
         k: () => this.move(-1), ArrowUp: () => this.move(-1),
         Enter: () => this.selected >= 0 && this.open(this.selected),
         o: () => lead && window.open(lead.url, "_blank"),
-        Escape: () => (market.isOpen() ? market.close() : drawer.close()),
+        Escape: () => (company.isOpen() ? company.close() : market.isOpen() ? market.close() : drawer.close()),
         m: () => market.toggle(),
+        c: () => company.toggle(),
         "/": () => $("q").focus(),
         s: () => lead && this.setState(lead, "shortlisted"),
         b: () => lead && this.setState(lead, "bidding"),

@@ -390,6 +390,7 @@ const tweaks = {
     });
     drawer.bind(app);
     market.bind();
+    company.bind();
   },
 
   render(app) {

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from tender_radar.ai import LeadAnalyst
+from tender_radar.company import CompanyProfile
 from tender_radar.http_client import PoliteClient
 from tender_radar.lead import Lead
 from tender_radar.market import company_names
@@ -16,6 +17,7 @@ from tender_radar.store import COLUMNS, LeadStore
 from tender_radar.translator import Translator
 
 ROOT = Path(__file__).resolve().parent.parent
+COMPANY = ROOT / "data" / "company"
 TRANSLATED_FIELDS = ("title", "buyer", "category", "activities", "brief")
 DEFAULT_MIN_FIT = 6
 AI_OFF = "AI is off. Log in to Claude Code (run `claude`) or set ANTHROPIC_API_KEY, then restart the service."
@@ -31,7 +33,9 @@ class TenderRadar:
         self.scorer = KeywordScorer(self.config["keywords"])
         self.store = LeadStore(ROOT / "data" / "leads.db")
         self.ai_settings = self.config.get("ai", {})
-        self.analyst = LeadAnalyst(self.config) if LeadAnalyst.available(self.config) else None
+        self.company = CompanyProfile(COMPANY, self.config.get("company", ""))
+        available = LeadAnalyst.available(self.config)
+        self.analyst = LeadAnalyst(self.config, self.company.summary()) if available else None
         use_claude = self.analyst and self.ai_settings.get("translate_fallback", True)
         self.translator = Translator(self.store.db, fallback=self.analyst.translate if use_claude else None)
 
@@ -129,6 +133,12 @@ class TenderRadar:
         pitch = self.analyst.pitch(lead, self.config.get("freelancer", {}).get("profile", ""))
         self.store.set_pitch(key, pitch)
         return pitch
+
+    def read_company_documents(self) -> dict:
+        """Profile fields Claude found in the uploaded company documents. Not saved: the user checks them first."""
+        if not self.analyst:
+            raise ValueError(AI_OFF)
+        return self.analyst.read_company(self.company.readable_documents())
 
     def new_awards(self, keys: set) -> list[dict]:
         """Leads in `keys` that are awarded in your field with a known winner."""

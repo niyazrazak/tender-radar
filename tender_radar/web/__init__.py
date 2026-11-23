@@ -11,7 +11,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from tender_radar.ai import LeadAnalyst
-from tender_radar.cli import DEFAULT_MIN_FIT, ROOT, TRANSLATED_FIELDS, TenderRadar
+from tender_radar.cli import COMPANY, DEFAULT_MIN_FIT, ROOT, TRANSLATED_FIELDS, TenderRadar
+from tender_radar.company import CompanyProfile
 from tender_radar.market import add_company_english, add_report_english, market_report
 from tender_radar.runs import RunLog
 from tender_radar.small_company import DEFAULT_MAX_UPFRONT_USD, assess
@@ -78,8 +79,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         routes = {
             "/api/leads": self._leads, "/api/status": self._status, "/api/export": self._export,
-            "/api/market": self._market,
+            "/api/market": self._market, "/api/company": self._company,
         }
+        if url.path == "/api/company-document":
+            return self._safely(self._company_document, parse_qs(url.query))
         if url.path in routes:
             return self._safely(routes[url.path], parse_qs(url.query))
         self._static(url.path)
@@ -90,6 +93,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         routes = {
             "/api/run": self._run, "/api/lead-status": self._lead_status, "/api/lead-update": self._lead_update,
             "/api/analyze": self._analyze, "/api/pitch": self._pitch,
+            "/api/company": self._company_save, "/api/company-upload": self._company_upload,
+            "/api/company-document": self._company_document_update, "/api/company-read": self._company_read,
         }
         path = urlparse(self.path).path
         # A JSON content type forces a CORS preflight, which we never answer, so other sites cannot post here.
@@ -151,7 +156,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "scheduler": self.scheduler.status(),
             "runs": RunLog(store.db).recent(8),
             "sources": [dict(row) for row in counts],
-            "company": self._config().get("company", ""),
+            "company": self._profile().display_name(),
             "ai_enabled": LeadAnalyst.available(self._config()),
         })
 
@@ -189,6 +194,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
         pitch = TenderRadar(self.config_path).pitch(str(body.get("key", "")))
         self._json({"pitch": pitch})
 
+    def _company(self, _query: dict):
+        self._json(self._profile().load() | {"ai_enabled": LeadAnalyst.available(self._config())})
+
+    def _company_save(self, body: dict):
+        self._json(self._profile().save_details(body.get("details") or {}))
+
+    def _company_upload(self, body: dict):
+        profile = self._profile()
+        for upload in body.get("files", []):
+            profile.add_document(str(upload.get("name", "")), base64.b64decode(upload.get("data", "")))
+        self._json(profile.load())
+
+    def _company_document(self, query: dict):
+        self._file(self._profile().document_path(_first(query, "name")))
+
+    def _company_document_update(self, body: dict):
+        """Changes a document's kind or its attach flag, or removes it."""
+        profile, name = self._profile(), str(body.get("name", ""))
+        if body.get("remove"):
+            profile.remove_document(name)
+        else:
+            profile.update_document(name, body.get("kind"), body.get("attach"))
+        self._json(profile.load())
+
+    def _company_read(self, _body: dict):
+        self._json({"details": TenderRadar(self.config_path).read_company_documents()})
+
     def _run(self, _body: dict):
         started = self.scheduler.request_run()
         self._json({"started": started}, HTTPStatus.ACCEPTED if started else HTTPStatus.CONFLICT)
@@ -217,6 +249,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
         except Exception as error:  # keep serving; the page shows the message
             self._json({"error": str(error)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+
+    def _profile(self) -> CompanyProfile:
+        return CompanyProfile(COMPANY, self._config().get("company", ""))
 
     def _config(self) -> dict:
         return json.loads(self.config_path.read_text(encoding="utf-8"))

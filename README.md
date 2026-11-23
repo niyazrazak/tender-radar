@@ -85,7 +85,12 @@ To use the API instead, put a key in `.env` (copy `.env.example`). With a key se
 
 ## Outreach: introduction emails
 
-**Outreach** in the header (or `e`) emails buyers and partners to introduce your company. Claude drafts each email; nothing is sent until you click **Send…** and then confirm the address.
+**Outreach** in the header (or `e`) emails buyers and partners to introduce your company. Claude drafts each email; nothing is sent until you send it.
+
+Two ways to send a draft:
+
+- **Open in Outlook web** (no setup): opens a new email in Outlook on the web, from your own mailbox, with the recipient, subject, message and signature filled in. Finder opens with the documents marked **Attach**: drag the PDF into the email and click Send in Outlook. Then click **Mark as sent** in Tender Radar, so the Sent record is kept. **Show PDF** opens Finder again. Set `outreach.outlook_web_url` for a personal account (`https://outlook.live.com/mail/0/deeplink/compose`).
+- **Send…** (when an SMTP account is set up): sends the email from Tender Radar with the documents attached, after a second click that confirms the address.
 
 - **Contacts:** add the company, person and email. In a tender's panel, **Introduce us** opens the form with the buyer, or an awarded tender's winner, filled in; add the email address and save. Tick **Draft an email now** to get a draft at once.
 - **Drafts:** read and edit the subject and message, then send. **Draft again** writes a new version. Your signature from Company goes below the message, and the documents marked **Attach** go with it (15 MB at most).
@@ -93,7 +98,7 @@ To use the API instead, put a key in `.env` (copy `.env.example`). With a key se
 - To a partner (a company that won a contract), it offers to deliver the part of the work in your field as a subcontractor.
 - **Sent** keeps a record of every email, with its attachments. Removing a contact keeps its sent emails.
 
-Emails go out through the SMTP account in `config.json` -> `alerts` -> `email` (`smtp_host`, `smtp_port`, `username`, optional `from`), with the password in `TENDER_RADAR_SMTP_PASSWORD`. Replies go to the email in your company profile. Optional settings in `config.json` -> `outreach`:
+For **Send…**, emails go out through the SMTP account in `config.json` -> `alerts` -> `email` (`smtp_host`, `smtp_port`, `username`, optional `from`), with the password in `TENDER_RADAR_SMTP_PASSWORD`. Replies go to the email in your company profile. Optional settings in `config.json` -> `outreach`:
 
 - `daily_limit`: most emails sent a day (default 20), so a mistake cannot become a flood.
 - `bcc`: a list of addresses that get a copy of each email, for your records.

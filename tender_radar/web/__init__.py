@@ -5,6 +5,8 @@ import json
 import mimetypes
 import os
 import re
+import subprocess
+import sys
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -14,7 +16,7 @@ from tender_radar.ai import LeadAnalyst
 from tender_radar.cli import COMPANY, DEFAULT_MIN_FIT, ROOT, TRANSLATED_FIELDS, TenderRadar
 from tender_radar.company import CompanyProfile
 from tender_radar.market import add_company_english, add_report_english, market_report
-from tender_radar.outreach import Mailer, OutreachStore
+from tender_radar.outreach import OUTLOOK_WEB_COMPOSE, Mailer, OutreachStore
 from tender_radar.runs import RunLog
 from tender_radar.small_company import DEFAULT_MAX_UPFRONT_USD, assess
 from tender_radar.scheduler import Scheduler
@@ -100,6 +102,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "/api/contact": self._contact_save, "/api/contact-delete": self._contact_delete,
             "/api/intro-draft": self._intro_draft, "/api/intro-update": self._intro_update,
             "/api/intro-delete": self._intro_delete, "/api/intro-send": self._intro_send,
+            "/api/intro-mark-sent": self._intro_mark_sent, "/api/company-reveal": self._company_reveal,
         }
         path = urlparse(self.path).path
         # A JSON content type forces a CORS preflight, which we never answer, so other sites cannot post here.
@@ -229,7 +232,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _outreach(self, _query: dict):
         config, outreach = self._config(), OutreachStore(_store().db)
         mailer = Mailer(config)
-        documents = self._profile().load()["documents"]
+        profile = self._profile().load()
+        documents = profile["documents"]
         self._json({
             "contacts": outreach.contacts(), "intros": outreach.intros(),
             "mailer": {
@@ -237,6 +241,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 "sent_today": outreach.sent_today(),
             },
             "attachments": [doc["name"] for doc in documents if doc.get("attach")],
+            "signature": profile["details"]["signature"],
+            "outlook_web": config.get("outreach", {}).get("outlook_web_url", OUTLOOK_WEB_COMPOSE),
+            "can_reveal": sys.platform == "darwin" and self._local_request(),
             "ai_enabled": LeadAnalyst.available(config),
         })
 
@@ -267,6 +274,26 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def _intro_send(self, body: dict):
         TenderRadar(self.config_path).send_intro(int(body.get("id", 0)))
         self._outreach({})
+
+    def _intro_mark_sent(self, body: dict):
+        """The user sent the email in Outlook on the web; record it with the documents they were to attach."""
+        attachments = [doc["name"] for doc in self._profile().load()["documents"] if doc.get("attach")]
+        OutreachStore(_store().db).mark_sent(int(body.get("id", 0)), attachments, via="outlook-web")
+        self._outreach({})
+
+    def _company_reveal(self, _body: dict):
+        """Shows the documents to attach in Finder, to drag into an Outlook web email. Only on this Mac."""
+        if sys.platform != "darwin" or not self._local_request():
+            raise ValueError("Show PDF works only on the Mac that runs Tender Radar")
+        profile = self._profile()
+        names = [doc["name"] for doc in profile.load()["documents"] if doc.get("attach")]
+        if not names:
+            raise ValueError("No document is marked Attach in Company")
+        subprocess.run(["open", "-R", *(str(profile.document_path(name)) for name in names)], check=True, timeout=10)
+        self._json({"shown": names})
+
+    def _local_request(self) -> bool:
+        return self.client_address[0] in ("127.0.0.1", "::1")
 
     def _run(self, _body: dict):
         started = self.scheduler.request_run()

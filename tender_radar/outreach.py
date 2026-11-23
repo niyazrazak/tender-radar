@@ -2,8 +2,10 @@
 
 Claude drafts each email from the company profile and, when given, the tender that links the company to
 the contact. Nothing is sent on its own: a person reads the draft, edits it if needed, and clicks Send.
-Emails go out through the SMTP account in config.json -> alerts -> email, with the documents the company
-profile marks "attach". `outreach.daily_limit` caps how many go out a day, so a mistake cannot become a flood.
+Two ways to send. Through the SMTP account in config.json -> alerts -> email, with the documents the company
+profile marks "attach"; `outreach.daily_limit` caps how many go out a day, so a mistake cannot become a flood.
+Or in Outlook on the web: the dashboard opens a filled-in compose window, the user drags the PDF in and sends
+it from their own mailbox, then marks the email as sent here.
 """
 
 import json
@@ -18,6 +20,8 @@ from email.utils import formataddr
 CONTACT_ROLES = ("buyer", "partner", "other")
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 DEFAULT_DAILY_LIMIT = 20
+OUTLOOK_WEB_COMPOSE = "https://outlook.office.com/mail/deeplink/compose"
+SENT_VIA = ("smtp", "outlook-web")
 MAX_ATTACHMENTS_BYTES = 15 * 1024 * 1024  # most mail servers refuse messages over 20-25 MB once encoded
 
 SCHEMA = (
@@ -42,7 +46,8 @@ SCHEMA = (
         error TEXT NOT NULL DEFAULT '',
         attachments TEXT NOT NULL DEFAULT '[]',
         created TEXT NOT NULL,
-        sent TEXT NOT NULL DEFAULT ''
+        sent TEXT NOT NULL DEFAULT '',
+        via TEXT NOT NULL DEFAULT ''
     )""",
 )
 CONTACT_FIELDS = ("company", "person", "email", "role", "cr", "lead_key", "notes")
@@ -55,6 +60,8 @@ class OutreachStore:
         self.db = db
         for statement in SCHEMA:
             self.db.execute(statement)
+        if "via" not in {row[1] for row in self.db.execute("PRAGMA table_info(intros)")}:
+            self.db.execute("ALTER TABLE intros ADD COLUMN via TEXT NOT NULL DEFAULT ''")
         self.db.commit()
 
     def contacts(self) -> list[dict]:
@@ -137,10 +144,15 @@ class OutreachStore:
         self.db.execute("DELETE FROM intros WHERE id = ?", (intro_id,))
         self.db.commit()
 
-    def mark_sent(self, intro_id: int, attachments: list[str]):
+    def mark_sent(self, intro_id: int, attachments: list[str], via: str = "smtp"):
+        """Records the email as sent. `via` is "smtp" (sent here) or "outlook-web" (sent by the user in Outlook)."""
+        if via not in SENT_VIA:
+            raise ValueError(f"Unknown way of sending: {via}")
+        if self.intro(intro_id)["status"] == "sent":
+            raise ValueError("This email was sent already")
         self.db.execute(
-            "UPDATE intros SET status = 'sent', error = '', sent = ?, attachments = ? WHERE id = ?",
-            (_now(), json.dumps(attachments, ensure_ascii=False), intro_id),
+            "UPDATE intros SET status = 'sent', error = '', sent = ?, attachments = ?, via = ? WHERE id = ?",
+            (_now(), json.dumps(attachments, ensure_ascii=False), via, intro_id),
         )
         self.db.commit()
 

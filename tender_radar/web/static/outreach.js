@@ -1,7 +1,9 @@
 "use strict";
 
 /* Outreach: introduction emails to buyers and partners. Claude drafts, a person reads and sends.
-   Send asks for a second click that names the recipient, so one stray click cannot email anyone. */
+   Two ways to send. "Open in Outlook web" fills a compose window in the user's own mailbox and shows the
+   PDF in Finder to drag in; the user sends there and clicks "Mark as sent". "Send…" goes out through SMTP
+   when it is set up, and asks for a second click that names the recipient. */
 
 const CONTACT_ROLES = { buyer: "Buyer", partner: "Partner", other: "Other" };
 
@@ -70,6 +72,9 @@ const outreach = {
         save: () => this.post("", "/api/intro-update", this.draftValues(id), "Saved"),
         delete: () => this.post("", "/api/intro-delete", { id }),
         send: () => { this.confirming = id; this.render(); },
+        outlook: () => this.openOutlook(id),
+        "show-pdf": () => this.showPdf(),
+        "mark-sent": () => this.post("", "/api/intro-mark-sent", { id }, "Marked as sent"),
         cancel: () => { this.confirming = null; this.render(); },
         confirm: () => this.send(id),
       };
@@ -88,6 +93,26 @@ const outreach = {
   draftValues(id) {
     const card = $("outreachBody").querySelector(`[data-draft="${id}"]`);
     return { id, subject: card.querySelector("[name=subject]").value, body: card.querySelector("[name=body]").value };
+  },
+
+  /** Opens Outlook on the web with the email filled in, saves the edits, and shows the PDF to drag in.
+      The window opens first, inside the click, so the browser does not block it as a pop-up. */
+  async openOutlook(id) {
+    const values = this.draftValues(id);
+    const intro = this.data.intros.find((item) => item.id === id);
+    const signature = (this.data.signature || "").trim();
+    const params = new URLSearchParams({
+      to: intro.email, subject: values.subject, body: `${values.body.trim()}${signature ? `\n\n${signature}` : ""}\n`,
+    });
+    window.open(`${this.data.outlook_web}?${params.toString().replace(/\+/g, "%20")}`, "_blank", "noopener");
+    await this.post("", "/api/intro-update", values);
+    if (this.data.attachments.length && this.data.can_reveal) await this.showPdf();
+  },
+
+  async showPdf() {
+    const result = await api.post("/api/company-reveal", {});
+    toast(result.ok ? "Drag the PDF from Finder into the Outlook email, send it, then click Mark as sent"
+      : `Could not show the PDF: ${result.data.error}`);
   },
 
   /** Saves the edits first, so what was on screen is what goes out. */
@@ -121,15 +146,13 @@ const outreach = {
 
 function mailerNote(mailer, attachments) {
   const files = attachments.length
-    ? `Attached to each email: ${attachments.map(esc).join(", ")}.`
-    : "No documents are marked <b>Attach</b> in Company, so emails go without your company profile.";
-  if (!mailer.ready) {
-    return `<div class="note warn">Emails cannot be sent yet. Set <code>smtp_host</code>, <code>smtp_port</code> and
-      <code>username</code> in <code>config.json</code> → <code>alerts</code> → <code>email</code>, the password in
-      <code>TENDER_RADAR_SMTP_PASSWORD</code>, then restart the service. You can still add contacts and draft emails. ${files}</div>`;
-  }
-  return `<p class="cap">Sent from ${esc(mailer.sender)} · ${mailer.sent_today} of ${mailer.daily_limit} sent today. ${files}
-    Nothing goes out until you click Send.</p>`;
+    ? `The document to attach: ${attachments.map(esc).join(", ")}.`
+    : "No document is marked <b>Attach</b> in Company, so there is no PDF to attach.";
+  const smtp = mailer.ready
+    ? ` Or <b>Send…</b> sends it from ${esc(mailer.sender)} with the PDF attached (${mailer.sent_today} of ${mailer.daily_limit} sent today).`
+    : "";
+  return `<p class="cap"><b>Open in Outlook web</b> opens the email in your own mailbox and shows the PDF in Finder:
+    drag it in, click Send in Outlook, then <b>Mark as sent</b> here.${smtp} ${files}</p>`;
 }
 
 function draftCard(intro, state) {
@@ -139,7 +162,12 @@ function draftCard(intro, state) {
   const controls = confirming
     ? `<button class="btn primary" data-act="confirm" data-id="${intro.id}">Send to ${esc(intro.email)}</button>
        <button class="btn ghost" data-act="cancel" data-id="${intro.id}">Cancel</button>`
-    : `<button class="btn primary" data-act="send" data-id="${intro.id}" ${state.busy ? "disabled" : ""}>Send…</button>
+    : `<button class="btn primary" data-act="outlook" data-id="${intro.id}" ${state.busy ? "disabled" : ""}
+         title="Opens a new email in Outlook on the web with this text">Open in Outlook web</button>
+       ${state.data.can_reveal && state.data.attachments.length ? `<button class="btn ghost" data-act="show-pdf" data-id="${intro.id}">Show PDF</button>` : ""}
+       <button class="btn ghost" data-act="mark-sent" data-id="${intro.id}" ${state.busy ? "disabled" : ""}
+         title="You sent it in Outlook: record it here">Mark as sent</button>
+       ${state.data.mailer.ready ? `<button class="btn ghost" data-act="send" data-id="${intro.id}" ${state.busy ? "disabled" : ""}>Send…</button>` : ""}
        <button class="btn ghost" data-act="save" data-id="${intro.id}" ${state.busy ? "disabled" : ""}>Save edits</button>
        <button class="btn ghost" data-act="draft" data-id="${intro.contact_id}" ${state.busy ? "disabled" : ""}
          title="Claude writes a new draft; this one stays">Draft again</button>
@@ -190,7 +218,7 @@ function contactsTable(contacts, aiEnabled, busy) {
 }
 
 function sentTable(sent) {
-  const rows = sent.map((i) => `<tr><td class="cap">${esc(i.sent.slice(0, 16))}</td>
+  const rows = sent.map((i) => `<tr><td class="cap">${esc(i.sent.slice(0, 16))}<div>${i.via === "outlook-web" ? "Outlook web" : "Sent here"}</div></td>
       <td>${esc(i.company)}<div class="cap">${esc(i.email)}</div></td>
       <td><details><summary>${esc(i.subject)}</summary><p class="sent-body">${esc(i.body)}</p>
         ${i.attachments.length ? `<div class="cap">Attached: ${i.attachments.map(esc).join(", ")}</div>` : ""}</details></td></tr>`).join("");

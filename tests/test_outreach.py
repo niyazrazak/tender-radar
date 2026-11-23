@@ -116,3 +116,23 @@ def test_intro_tells_claude_who_and_which_tender(api):  # noqa: F811
     assert "Company: Opal" in body["system"] and "do not ask about it" in body["system"]
     text = body["messages"][0]["content"]
     assert "Contact person: Sara" in text and "Buyer (issues tenders)" in text and "HR system" in text
+
+
+def test_marked_sent_records_how_and_only_once(outreach):
+    contact_id = outreach.save_contact(contact())
+    intro_id = outreach.add_draft(contact_id, "", "Hello", "Body")
+    with pytest.raises(ValueError):
+        outreach.mark_sent(intro_id, [], via="pigeon")
+    outreach.mark_sent(intro_id, ["profile.pdf"], via="outlook-web")
+    assert outreach.intros()[0]["via"] == "outlook-web" and outreach.sent_today() == 1
+    with pytest.raises(ValueError, match="sent already"):
+        outreach.mark_sent(intro_id, [], via="outlook-web")
+
+
+def test_an_older_database_gets_the_via_column(store):
+    store.db.execute("""CREATE TABLE intros (id INTEGER PRIMARY KEY AUTOINCREMENT, contact_id INTEGER NOT NULL,
+        lead_key TEXT NOT NULL DEFAULT '', subject TEXT NOT NULL, body TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'draft', error TEXT NOT NULL DEFAULT '', attachments TEXT NOT NULL DEFAULT '[]',
+        created TEXT NOT NULL, sent TEXT NOT NULL DEFAULT '')""")
+    OutreachStore(store.db)
+    assert "via" in {row[1] for row in store.db.execute("PRAGMA table_info(intros)")}

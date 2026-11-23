@@ -85,6 +85,21 @@ What is sent:
 - Deadline reminders for **Shortlisted** and **Bidding** leads, `alerts.reminder_days` (7, 3, 1) days before the deadline. The deadline is **Our bid deadline** when the team set one, else the portal's closing date. Each reminder is sent once.
 - A warning when a portal fails, or returns 0 tenders when it returned some last time (its page probably changed).
 
+## Small company mode
+
+For a company that cannot put up large bid bonds or pay many document fees. The **company size** filter shows:
+
+- **Reserved for SMEs:** the tender type says so (Oman's "مؤسسات صغيرة و المتوسطة").
+- **Small-value purchase:** Monaqasat "less than QAR 200,000 / 500,000", practices (ممارسة), direct purchases (Etimad شراء مباشر) and RFQs. These usually have a small bond or none.
+- **Low up-front cost:** document fee + bid bond, in US dollars, up to `small_company.max_upfront_usd` (default 2000). When the bond is a percent of the bid, or a portal lists no fee or bond, the cost is unknown.
+- **Fits a small company:** any of the above, for open tenders only.
+
+Sort by **Lowest up-front cost** to see the cheapest to bid first. Each lead's panel shows its up-front cost and, for Qatar, the Qatar Development Bank SME exemptions to check.
+
+Set `small_company.enabled` to `true` in `config.json` to start the dashboard on **Fits a small company**, and to send only those leads in alert digests.
+
+The **Market** view lists **Partners to approach**: companies that win larger contracts in your field. A small company can offer to deliver the software part as their subcontractor, under their bond and registration.
+
 ## Team work
 
 - Each lead has **Owner**, **Our bid deadline** and **Notes** in its panel. Search finds them too.

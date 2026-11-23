@@ -11,7 +11,10 @@ TOP = 25
 def market_report(leads: list[dict], min_score: int) -> dict:
     """Aggregates awarded leads. `relevant` counts only leads that match the company (keywords or AI)."""
     awarded = [lead for lead in leads if lead["status"] == "awarded" and (lead.get("extra") or {}).get("winners")]
-    competitors = defaultdict(lambda: {"wins": 0, "bids": 0, "relevant_wins": 0, "won_value": 0.0, "buyers": set()})
+    competitors = defaultdict(lambda: {
+        "wins": 0, "bids": 0, "relevant_wins": 0, "won_value": 0.0, "relevant_value": 0.0, "buyers": set(),
+        "currency": "", "largest": None,
+    })
     buyers = defaultdict(lambda: {"awards": 0, "relevant": 0, "value": 0.0, "currency": ""})
     recent = []
     for lead in awarded:
@@ -30,8 +33,14 @@ def market_report(leads: list[dict], min_score: int) -> dict:
             entry = competitors[winner["company"]]
             entry["wins"] += 1
             entry["relevant_wins"] += relevant
-            entry["won_value"] += _number(winner.get("value"))
+            value_won = _number(winner.get("value"))
+            entry["won_value"] += value_won
             entry["buyers"].add(buyer)
+            entry["currency"] = lead.get("currency", "")
+            if relevant:
+                entry["relevant_value"] += value_won
+                if not entry["largest"] or value_won > entry["largest"]["value"]:
+                    entry["largest"] = {"title": lead.get("title_en") or lead["title"], "value": value_won}
             if winner["company"] not in bidders:
                 entry["bids"] += 1  # single-envelope reports list no bids; a winner did bid
         if relevant:
@@ -40,6 +49,7 @@ def market_report(leads: list[dict], min_score: int) -> dict:
         "awarded": len(awarded),
         "relevant_awarded": len(recent),
         "competitors": _top_competitors(competitors),
+        "partners": _partners(competitors),
         "buyers": sorted(
             ({"buyer": name, **data} for name, data in buyers.items()),
             key=lambda b: (-b["relevant"], -b["awards"]),
@@ -58,6 +68,19 @@ def _top_competitors(competitors: dict) -> list[dict]:
         for name, data in competitors.items()
     ]
     return sorted(rows, key=lambda r: (-r["relevant_wins"], -r["wins"], -r["won_value"]))[:TOP]
+
+
+def _partners(competitors: dict) -> list[dict]:
+    """Companies that win large contracts in your field: a small company can offer to deliver
+    the software part as their subcontractor, under their bond and their registration."""
+    rows = [
+        {
+            "company": name, "relevant_wins": data["relevant_wins"], "relevant_value": round(data["relevant_value"], 2),
+            "currency": data["currency"], "largest": data["largest"], "buyers": sorted(data["buyers"])[:5],
+        }
+        for name, data in competitors.items() if data["relevant_wins"]
+    ]
+    return sorted(rows, key=lambda r: -r["relevant_value"])[:TOP]
 
 
 def _award_row(lead: dict, buyer: str) -> dict:

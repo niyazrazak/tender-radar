@@ -13,6 +13,7 @@ from email.message import EmailMessage
 import requests
 
 from tender_radar.notifier import Notifier
+from tender_radar.small_company import DEFAULT_MAX_UPFRONT_USD, assess
 
 DIGEST_LIMIT = 15
 TELEGRAM_LIMIT = 4000  # Telegram rejects messages over 4096 characters
@@ -79,6 +80,9 @@ class Alerts:
             ) if channel.ready
         ]
         self.min_fit = settings.get("digest_min_fit")
+        small = config.get("small_company", {})
+        self.small_company = bool(small.get("enabled"))
+        self.max_upfront = small.get("max_upfront_usd", DEFAULT_MAX_UPFRONT_USD)
         self.dashboard = settings.get("dashboard_url", "")
 
     def run_finished(self, new_leads: list[dict], result: dict, error: str = ""):
@@ -123,10 +127,13 @@ class Alerts:
         return lines
 
     def digest_leads(self, leads: list[dict]) -> list[dict]:
-        """With AI on, only leads it rated a fit (or did not rate yet) go into the digest."""
-        if self.min_fit is None:
-            return leads
-        return [lead for lead in leads if lead.get("ai_fit") is None or lead["ai_fit"] >= self.min_fit]
+        """With AI on, only leads it rated a fit (or did not rate yet) go into the digest.
+        In small company mode, only leads a small company can afford to bid on."""
+        if self.min_fit is not None:
+            leads = [lead for lead in leads if lead.get("ai_fit") is None or lead["ai_fit"] >= self.min_fit]
+        if self.small_company:
+            leads = [lead for lead in leads if assess(lead, self.max_upfront)["fits"]]
+        return leads
 
     def _digest(self, leads: list[dict], reminder: bool = False) -> tuple[str, str]:
         ordered = sorted(leads, key=lambda lead: (-(lead.get("ai_fit") or 0), -lead["score"]))[:DIGEST_LIMIT]

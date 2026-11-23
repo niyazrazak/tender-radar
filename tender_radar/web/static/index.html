@@ -60,12 +60,20 @@
         <option value="percent">Bond as % of bid</option>
         <option value="unlisted">Bond not listed</option>
       </select>
+      <select id="size" title="Tenders a small company can bid on without much money up front">
+        <option value="">Any company size</option>
+        <option value="small">Fits a small company</option>
+        <option value="sme">Reserved for SMEs</option>
+        <option value="smallvalue">Small-value purchase</option>
+        <option value="cheap">Low up-front cost</option>
+      </select>
       <select id="sort">
         <option value="match">Best match</option>
         <option value="fit">AI fit</option>
         <option value="closing">Closing soonest</option>
         <option value="newest">Newest first</option>
         <option value="fee">Lowest fee</option>
+        <option value="upfront">Lowest up-front cost</option>
       </select>
       <label class="check" title="Show every collected tender, not only keyword matches">
         <input type="checkbox" id="scopeAll"> All tenders

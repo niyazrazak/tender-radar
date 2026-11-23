@@ -343,6 +343,10 @@
       "fetch_details": true
     }
   },
+  "small_company": {
+    "enabled": false,
+    "max_upfront_usd": 2000
+  },
   "ai": {
     "enabled": true,
     "min_fit": 6,

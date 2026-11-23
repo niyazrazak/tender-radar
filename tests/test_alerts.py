@@ -66,3 +66,11 @@ def test_reminders_are_marked_only_after_sending(store):
 
 def test_unconfigured_channels_are_off():
     assert Alerts({"alerts": {"email": {"enabled": True}, "telegram": {"enabled": True}}}).channels == []
+
+
+def test_small_company_mode_keeps_only_affordable_leads():
+    sender = alerts()
+    sender.small_company, sender.max_upfront = True, 2000
+    cheap = lead_dict("cheap") | {"tender_type": "RFQ", "doc_fee": "", "bond": "", "currency": "QAR"}
+    costly = lead_dict("costly") | {"tender_type": "مناقصة عامة", "doc_fee": "800", "bond": "80,000", "currency": "QAR"}
+    assert [lead["key"] for lead in sender.digest_leads([cheap, costly])] == ["cheap"]

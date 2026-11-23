@@ -14,6 +14,7 @@ from tender_radar.ai import LeadAnalyst
 from tender_radar.cli import DEFAULT_MIN_FIT, ROOT, TRANSLATED_FIELDS, TenderRadar
 from tender_radar.market import market_report
 from tender_radar.runs import RunLog
+from tender_radar.small_company import DEFAULT_MAX_UPFRONT_USD, assess
 from tender_radar.scheduler import Scheduler
 from tender_radar.store import LeadStore
 from tender_radar.translator import Translator
@@ -122,10 +123,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         min_fit = config.get("ai", {}).get("min_fit", DEFAULT_MIN_FIT) if min_score > -999 else None
         leads = store.query(min_score, include_closed=_first(query, "closed") == "1", min_fit=min_fit)
         translator = Translator(store.db)
+        small = config.get("small_company", {})
+        max_upfront = small.get("max_upfront_usd", DEFAULT_MAX_UPFRONT_USD)
         for lead in leads:
             for field in TRANSLATED_FIELDS:
                 lead[f"{field}_en"] = translator.cached(lead[field])
+            lead["small"] = assess(lead, max_upfront)
         self._json({
+            "small_company": {"enabled": bool(small.get("enabled")), "max_upfront_usd": max_upfront},
             "leads": leads,
             "min_score": config.get("min_score", 3),
             "focus_countries": config.get("focus_countries", []),

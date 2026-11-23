@@ -190,6 +190,11 @@ const market = {
         <td dir="auto">${esc(c.company)}</td><td class="num">${c.relevant_wins}</td><td class="num">${c.wins}</td>
         <td class="num">${c.bids}</td><td class="num">${c.win_rate === null ? "—" : `${Math.round(c.win_rate * 100)}%`}</td>
         <td class="num">${money(c.won_value)}</td></tr>`).join("");
+    const partners = (data.partners || []).map((p) => `<tr>
+        <td dir="auto">${esc(p.company)}</td><td class="num">${p.relevant_wins}</td>
+        <td class="num">${money(p.relevant_value, p.currency)}</td>
+        <td dir="auto">${p.largest ? `${esc(p.largest.title)} <span class="cap">${money(p.largest.value, p.currency)}</span>` : ""}</td>
+        <td dir="auto" class="cap">${esc(p.buyers.join("; "))}</td></tr>`).join("");
     const buyers = data.buyers.map((b) => `<tr><td dir="auto">${esc(b.buyer)}</td>
         <td class="num">${b.relevant}</td><td class="num">${b.awards}</td><td class="num">${money(b.value, b.currency)}</td></tr>`).join("");
     const recent = data.recent.map((r) => `<tr>
@@ -208,6 +213,10 @@ const market = {
       ${empty}
       <h3>Competitors</h3><p class="cap">"In your field" counts tenders that match your keywords or AI fit.</p>
       <table class="grid"><tr><th>Company</th><th>Wins in your field</th><th>All wins</th><th>Bids</th><th>Win rate</th><th>Won value</th></tr>${competitors}</table>
+      <h3>Partners to approach</h3>
+      <p class="cap">Companies that win larger contracts in your field. A small company can offer to deliver the software part
+        as their subcontractor: they hold the bond and the registration.</p>
+      <table class="grid"><tr><th>Company</th><th>Wins in your field</th><th>Value in your field</th><th>Largest win</th><th>Buyers</th></tr>${partners || '<tr><td colspan="5" class="cap">None yet.</td></tr>'}</table>
       <h3>Buyers</h3>
       <table class="grid"><tr><th>Buyer</th><th>Awards in your field</th><th>All awards</th><th>Awarded value</th></tr>${buyers}</table>
       <h3>Recent awards in your field</h3>
@@ -220,6 +229,24 @@ const market = {
     });
   },
 };
+
+function upfrontFact(lead) {
+  const usd = lead.small?.upfront_usd;
+  if (usd === null || usd === undefined) return "Unknown (bond as % of bid, or fee or bond not listed)";
+  return `${fmtUSD(usd)} <span class="cap">document fee + bid bond. The bond is a bank guarantee, returned if you do not win.</span>`;
+}
+
+function smallFact(lead) {
+  const small = lead.small || {};
+  const notes = [];
+  if (small.sme_reserved) notes.push("Reserved for small and medium enterprises.");
+  if (small.small_value) notes.push(`${esc(small.small_value)}: usually a small bond or none.`);
+  if (lead.country === "Qatar") {
+    notes.push("Qatar: SMEs rated and accredited by Qatar Development Bank can be exempt from the bid bond, "
+      + "and document fees are waived below set limits. Check the current limits with QDB or the Ministry of Finance.");
+  }
+  return notes.map((note) => `<div>${note}</div>`).join("");
+}
 
 function facts(lead) {
   const left = daysLeft(lead.closing, todayISO());
@@ -235,6 +262,8 @@ function facts(lead) {
     ["Closing", lead.closing ? `${fmtDate(lead.closing)}${left !== null && left >= 0 ? ` · ${left} days left` : ""}` : ""],
     ["Document fee", esc(fmtFee(lead)) || "Not listed"],
     ["Bid bond", esc(fmtBond(lead)) || "Not listed"],
+    ["Up-front cost", upfrontFact(lead)],
+    ["Small company", smallFact(lead)],
     ["Winner", `<span dir="auto">${esc((lead.extra?.winners || []).map((w) => w.company).join("; "))}</span>`],
     ["Award value", money(lead.extra?.award_value)],
     ["Bidders", lead.extra?.bidders ? esc(lead.extra.bidders) : ""],

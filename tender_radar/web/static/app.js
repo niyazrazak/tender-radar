@@ -38,7 +38,9 @@ const api = {
 class Dashboard {
   constructor() {
     this.leads = [];
-    this.filters = { tab: "active", q: "", country: "", fee: "", bond: "", sort: "match", quick: "", scopeAll: false };
+    this.filters = {
+      tab: "active", q: "", country: "", fee: "", bond: "", size: "", sort: "match", quick: "", scopeAll: false,
+    };
     this.shown = PAGE_SIZE;
     this.selected = -1;
     this.visible = [];
@@ -60,6 +62,12 @@ class Dashboard {
       const data = await api.get(`/api/leads?scope=${scope}`);
       this.leads = data.leads;
       this.aiEnabled = data.ai_enabled;
+      this.smallCompany = data.small_company || { enabled: false, max_upfront_usd: 2000 };
+      // Small company mode in config.json starts the list on tenders a small company can afford, once.
+      if (!this.sizeApplied && this.smallCompany.enabled) { this.filters.size = "small"; $("size").value = "small"; }
+      this.sizeApplied = true;
+      $("size").querySelector('[value="cheap"]').textContent =
+        `Up-front cost up to $${this.smallCompany.max_upfront_usd.toLocaleString("en-US")}`;
       this.loadFailed = false;
       // Start on the focus country once; after that the user's choice stands.
       if (!this.focusApplied) this.filters.country = (data.focus_countries || [])[0] || "";
@@ -117,7 +125,7 @@ class Dashboard {
   render() {
     const today = todayISO();
     const base = this.leads.filter((lead) => this.matchesSearch(lead) && this.matchesCountry(lead)
-      && this.matchesFee(lead) && this.matchesBond(lead));
+      && this.matchesFee(lead) && this.matchesBond(lead) && this.matchesSize(lead));
     renderSummary(base, today, this.filters.quick);
     renderTabs(base, this.filters.tab);
     this.visible = sortLeads(base.filter((l) => this.matchesTab(l) && this.matchesQuick(l, today)), this.filters.sort);
@@ -156,6 +164,17 @@ class Dashboard {
     return bondKind(lead) === filter;
   }
 
+  matchesSize(lead) {
+    const small = lead.small || {};
+    const tests = {
+      small: () => small.fits,
+      sme: () => small.sme_reserved,
+      smallvalue: () => Boolean(small.small_value),
+      cheap: () => small.upfront_usd !== null && small.upfront_usd <= this.smallCompany.max_upfront_usd,
+    };
+    return !this.filters.size || tests[this.filters.size]();
+  }
+
   matchesTab(lead) {
     if (this.filters.tab === "active") return lead.lead_status !== "dismissed";
     return lead.lead_status === this.filters.tab;
@@ -184,6 +203,7 @@ class Dashboard {
     $("country").addEventListener("change", (e) => { this.filters.country = e.target.value; refilter(); });
     $("fee").addEventListener("change", (e) => { this.filters.fee = e.target.value; refilter(); });
     $("bond").addEventListener("change", (e) => { this.filters.bond = e.target.value; refilter(); });
+    $("size").addEventListener("change", (e) => { this.filters.size = e.target.value; refilter(); });
     $("sort").addEventListener("change", (e) => { this.filters.sort = e.target.value; refilter(); });
     $("scopeAll").addEventListener("change", (e) => { this.filters.scopeAll = e.target.checked; this.loadLeads(); });
     $("tabs").addEventListener("click", (e) => {
@@ -290,7 +310,7 @@ function renderList(leads, selected, lang, today) {
     return `<li class="row ${i === selected ? "sel" : ""}" data-i="${i}">
       <div class="lane-score">${fitBadge(lead)}<span class="score ${lead.score >= 6 ? "high" : ""}" title="Keyword score">${lead.score}</span></div>
       <div class="lane-main">
-        <div class="title" dir="auto">${isNew ? '<span class="badge new">New</span>' : ""}${status}${esc(title)}</div>
+        <div class="title" dir="auto">${isNew ? '<span class="badge new">New</span>' : ""}${status}${smallBadges(lead)}${esc(title)}</div>
         <div class="meta"><span dir="auto">${esc(lead.buyer_en || lead.buyer || "Unknown buyer")}</span>
           <span class="sep"></span><span>${esc(lead.country)}</span>
           ${lead.ref_no ? `<span class="sep"></span><span>${esc(lead.ref_no)}</span>` : ""}
@@ -348,6 +368,7 @@ function sortLeads(leads, sort) {
     fit: (a, b) => (b.ai_fit ?? -1) - (a.ai_fit ?? -1) || b.score - a.score,
     closing: (a, b) => closing(a).localeCompare(closing(b)) || b.score - a.score,
     fee: (a, b) => feeUSD(a) - feeUSD(b) || b.score - a.score,
+    upfront: (a, b) => upfrontUSD(a) - upfrontUSD(b) || b.score - a.score,
     newest: (a, b) => b.first_seen.localeCompare(a.first_seen) || b.score - a.score,
   };
   return [...leads].sort(orders[sort]);
@@ -370,6 +391,24 @@ const BOND_LIMITS_USD = { upto5k: 5000, upto25k: 25000, upto100k: 100000, over10
 
 function toUSD(amount, currency) {
   return amount * (USD_PER[currency] ?? 1);
+}
+
+/** Document fee + bid bond in dollars; unknown (bond as % or not listed) sorts last. */
+function upfrontUSD(lead) {
+  const usd = lead.small?.upfront_usd;
+  return usd === null || usd === undefined ? Infinity : usd;
+}
+
+function fmtUSD(amount) {
+  return `$${Math.round(amount).toLocaleString("en-US")}`;
+}
+
+function smallBadges(lead) {
+  const small = lead.small || {};
+  const badges = [];
+  if (small.sme_reserved) badges.push('<span class="badge sme" title="Reserved for small and medium enterprises">SME only</span>');
+  if (small.small_value) badges.push(`<span class="badge small" title="${esc(small.small_value)}">Small value</span>`);
+  return badges.join("");
 }
 
 function feeUSD(lead) {

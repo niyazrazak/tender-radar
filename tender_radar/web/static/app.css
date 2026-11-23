@@ -263,3 +263,7 @@ label.btn { cursor: pointer; }
 .market-body .note { color: var(--ink-2); margin: 16px 0; }
 .market-body a { text-decoration: none; }
 .market-body a:hover { text-decoration: underline; }
+
+/* Small company mode */
+.badge.sme { background: var(--good-soft); color: var(--good); }
+.badge.small { background: var(--accent-soft); color: var(--accent); }

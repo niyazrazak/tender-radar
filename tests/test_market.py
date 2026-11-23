@@ -31,3 +31,14 @@ def test_competitors_win_rate_and_relevance():
 def test_single_envelope_winner_counts_as_a_bid():
     report = market_report([awarded("a", 5, "M", [("Solo", "10.00")])], min_score=3)
     assert report["competitors"][0]["bids"] == 1
+
+
+def test_partners_rank_winners_by_value_in_your_field():
+    leads = [
+        awarded("a", 5, "M", [("Big Co", "900,000.00")]),
+        awarded("b", 5, "M", [("Mid Co", "100,000.00")]),
+        awarded("c", 0, "M", [("Other Co", "5,000,000.00")]),
+    ]
+    partners = market_report(leads, min_score=3)["partners"]
+    assert [p["company"] for p in partners] == ["Big Co", "Mid Co"]
+    assert partners[0]["largest"] == {"title": "a", "value": 900000.0}
